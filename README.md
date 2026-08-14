@@ -1,11 +1,11 @@
 # 🧠 DocuMind AI — Chat with Any PDF Document
 
-> **A completely FREE full-stack Retrieval-Augmented Generation (RAG) application that lets you have an intelligent conversation with any PDF document. Powered by Groq (Llama 3.1) and Google Embeddings.**
+> **A completely FREE full-stack Retrieval-Augmented Generation (RAG) application that lets you have an intelligent conversation with any PDF document. Powered by Groq (GPT OSS 20B) and Google Embeddings.**
 
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue?style=flat-square)](https://python.org)
 [![LangChain](https://img.shields.io/badge/LangChain-0.2%2B-green?style=flat-square)](https://langchain.com)
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.35%2B-red?style=flat-square)](https://streamlit.io)
-[![Groq](https://img.shields.io/badge/Groq-Llama_3.1-orange?style=flat-square)](https://groq.com)
+[![Groq](https://img.shields.io/badge/Groq-GPT_OSS_20B-orange?style=flat-square)](https://groq.com)
 [![Google](https://img.shields.io/badge/Google-Embeddings-purple?style=flat-square)](https://aistudio.google.com)
 
 ---
@@ -33,7 +33,7 @@ This app uses a state-of-the-art hybrid AI stack designed to be **100% free** wi
 
 1. **Google API Key** (Used for converting text into vectors):
    - Go to [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey) and create a key (starts with `AIza...`)
-2. **Groq API Key** (Used for the Llama 3.1 AI brain):
+2. **Groq API Key** (Used for the GPT OSS 20B AI brain):
    - Go to [console.groq.com/keys](https://console.groq.com/keys) and create a key (starts with `gsk_...`)
 
 Create a `.env` file in the root folder and add them like this (or just paste them directly into the app's sidebar):
@@ -119,6 +119,6 @@ When the user asks a question, we convert their question into a vector using the
 
 #### Step 6: GENERATE — Answer the Question 🤖
 ```python
-llm = ChatGroq(model="llama-3.1-8b-instant")
+llm = ChatGroq(model="gpt-oss-20b")
 ```
-We take those 4 relevant paragraphs, bundle them together with the user's question, and send it to Groq (running Llama 3.1). We strictly instruct Llama to *only* answer using the provided paragraphs, eliminating hallucinations. Groq's specialized hardware generates the answer almost instantly!
+We take those 4 relevant paragraphs, bundle them together with the user's question, and send it to Groq (running GPT OSS 20B). We strictly instruct the model to *only* answer using the provided paragraphs, eliminating hallucinations. Groq's specialized hardware generates the answer almost instantly!

@@ -10,7 +10,7 @@ RAG Pipeline (6 Steps):
                      using HuggingFace all-MiniLM-L6-v2 (100% Free, Local).
   Step 4 — STORE   : Save all vectors into ChromaDB (a Vector Database).
   Step 5 — RETRIEVE: Find the most relevant paragraphs for the user's question.
-  Step 6 — GENERATE: Send the relevant paragraphs + question to Groq (Llama 3)
+  Step 6 — GENERATE: Send the relevant paragraphs + question to Groq (GPT OSS 20B)
                      and return a grounded, cited answer.
 
 Why Groq API?
@@ -177,7 +177,7 @@ def create_qa_chain(vector_store: Chroma, groq_api_key: str) -> dict:
 
     Components:
     - Retriever: Finds the top-K most relevant chunks from ChromaDB.
-    - LLM: Groq Llama 3 — incredibly fast and accurate for document Q&A.
+    - LLM: Groq GPT OSS 20B — incredibly fast and accurate for document Q&A.
     - Prompt: Controls how the LLM behaves (grounded, no hallucination).
 
     Args:
@@ -193,9 +193,9 @@ def create_qa_chain(vector_store: Chroma, groq_api_key: str) -> dict:
         search_kwargs={"k": TOP_K_RESULTS},
     )
 
-    # Groq Llama 3 8B: FREE tier, extremely fast
+    # Groq GPT OSS 20B: FREE tier, extremely fast
     llm = ChatGroq(
-        model="llama-3.1-8b-instant",
+        model="gpt-oss-20b",
         groq_api_key=groq_api_key,
         temperature=0.1,
         max_tokens=1024,
@@ -274,7 +274,7 @@ def generate_summary(pdf_path: str, groq_api_key: str) -> str:
         text_to_summarize = "\n".join([page.page_content for page in pages[:5]])
         
         llm = ChatGroq(
-            model="llama-3.1-8b-instant",
+            model="gpt-oss-20b",
             groq_api_key=groq_api_key,
             temperature=0.3,
         )
