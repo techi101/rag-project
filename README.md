@@ -119,6 +119,6 @@ When the user asks a question, we convert their question into a vector using the
 
 #### Step 6: GENERATE — Answer the Question 🤖
 ```python
-llm = ChatGroq(model="gpt-oss-20b")
+llm = ChatGroq(model="openai/gpt-oss-20b")
 ```
 We take those 4 relevant paragraphs, bundle them together with the user's question, and send it to Groq (running GPT OSS 20B). We strictly instruct the model to *only* answer using the provided paragraphs, eliminating hallucinations. Groq's specialized hardware generates the answer almost instantly!

@@ -195,7 +195,7 @@ def create_qa_chain(vector_store: Chroma, groq_api_key: str) -> dict:
 
     # Groq GPT OSS 20B: FREE tier, extremely fast
     llm = ChatGroq(
-        model="gpt-oss-20b",
+        model="openai/gpt-oss-20b",
         groq_api_key=groq_api_key,
         temperature=0.1,
         max_tokens=1024,
@@ -274,7 +274,7 @@ def generate_summary(pdf_path: str, groq_api_key: str) -> str:
         text_to_summarize = "\n".join([page.page_content for page in pages[:5]])
         
         llm = ChatGroq(
-            model="gpt-oss-20b",
+            model="openai/gpt-oss-20b",
             groq_api_key=groq_api_key,
             temperature=0.3,
         )
