@@ -358,21 +358,23 @@ with st.sidebar:
     st.divider()
 
     st.markdown("**🔑 Google API Key** (for embeddings)")
-    google_api_key = st.text_input(
+    user_google_key = st.text_input(
         "google_api_key", label_visibility="collapsed",
-        value=os.getenv("GOOGLE_API_KEY", ""),
+        value="",
         type="password",
-        placeholder="AIza..."
+        placeholder="Enter your Google API Key (or leave blank to use host key)"
     )
+    google_api_key = user_google_key if user_google_key else os.getenv("GOOGLE_API_KEY", "")
     st.caption("Free key → [aistudio.google.com](https://aistudio.google.com/app/apikey)")
 
     st.markdown("**🔑 Groq API Key** (for AI chat)")
-    groq_api_key = st.text_input(
+    user_groq_key = st.text_input(
         "groq_api_key", label_visibility="collapsed",
-        value=os.getenv("GROQ_API_KEY", ""),
+        value="",
         type="password",
-        placeholder="gsk_..."
+        placeholder="Enter your Groq API Key (or leave blank to use host key)"
     )
+    groq_api_key = user_groq_key if user_groq_key else os.getenv("GROQ_API_KEY", "")
     st.caption("Free key → [console.groq.com](https://console.groq.com/keys)")
 
     if not google_api_key or not groq_api_key:
