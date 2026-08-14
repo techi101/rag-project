@@ -45,6 +45,21 @@ section[data-testid="stSidebar"] {
   background: #161B22 !important;
   border-right: 1px solid #21262D !important;
 }
+section[data-testid="stSidebar"] * {
+  color: #C9D1D9 !important;
+}
+section[data-testid="stSidebar"] .stMarkdown p,
+section[data-testid="stSidebar"] .stMarkdown strong,
+section[data-testid="stSidebar"] label {
+  color: #E6EDF3 !important;
+}
+section[data-testid="stSidebar"] .stCaption, 
+section[data-testid="stSidebar"] .stCaption p {
+  color: #8B949E !important;
+}
+section[data-testid="stSidebar"] a {
+  color: #58A6FF !important;
+}
 
 /* ── Buttons ────────────────────────────────────────────────────────────── */
 .stButton > button {
