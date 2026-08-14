@@ -221,6 +221,88 @@ section[data-testid="stSidebar"] a {
   text-transform: uppercase; letter-spacing: 1px;
   margin-bottom: 8px;
 }
+
+/* ── Mobile Responsive ───────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .block-container {
+    padding-top: 1rem !important;
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+    max-width: 100% !important;
+  }
+
+  /* Hero */
+  .hero-title {
+    font-size: 32px !important;
+    letter-spacing: -1.5px;
+    margin-bottom: 10px;
+  }
+  .hero-sub {
+    font-size: 14px;
+    max-width: 100%;
+    margin-bottom: 20px;
+    padding: 0 8px;
+  }
+  .badge-pill {
+    font-size: 11px;
+    padding: 5px 10px;
+    margin: 3px;
+  }
+
+  /* Feature cards */
+  .feat-card {
+    padding: 18px 16px;
+    border-radius: 12px;
+    margin-bottom: 8px;
+  }
+  .feat-icon { font-size: 24px; margin-bottom: 8px; }
+  .feat-title { font-size: 14px; }
+  .feat-desc { font-size: 12.5px; }
+
+  /* Steps */
+  .step-wrap { padding: 8px 4px; }
+  .step-num { width: 32px; height: 32px; font-size: 14px; }
+  .step-title { font-size: 12px; }
+  .step-desc { font-size: 11px; }
+
+  /* Chat page */
+  .chat-doc-bar {
+    padding: 12px 14px;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .chat-doc-name { font-size: 14px; }
+  .chat-doc-meta { font-size: 11px; }
+
+  [data-testid="stChatMessage"] {
+    padding: 10px 12px !important;
+    border-radius: 10px !important;
+  }
+
+  /* Summary */
+  .summary-box {
+    padding: 14px 16px;
+  }
+  .summary-body { font-size: 13px; }
+
+  /* Buttons */
+  .stButton > button {
+    font-size: 12px !important;
+    padding: 8px 14px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero-title {
+    font-size: 26px !important;
+    letter-spacing: -1px;
+  }
+  .hero-sub { font-size: 13px; }
+  .badge-pill { font-size: 10px; padding: 4px 8px; }
+  .feat-card { padding: 14px 12px; }
+  .chat-doc-bar { padding: 10px 12px; }
+  .chat-doc-name { font-size: 13px; }
+}
 </style>
 """, unsafe_allow_html=True)
 
