@@ -40,6 +40,35 @@ html, body, [class*="css"], .stMarkdown p {
 .stApp { background: #0D1117 !important; }
 .block-container { padding-top: 1.5rem !important; max-width: 1100px; }
 
+/* ── Global Text Colors (fixes dark-on-dark on mobile/cloud) ─────────────── */
+.stApp, .stApp * {
+  color: #C9D1D9;
+}
+.stMarkdown p, .stMarkdown li, .stMarkdown span,
+.stMarkdown strong, .stMarkdown b {
+  color: #E6EDF3 !important;
+}
+.stMarkdown h1, .stMarkdown h2, .stMarkdown h3,
+.stMarkdown h4, .stMarkdown h5, .stMarkdown h6 {
+  color: #F0F6FC !important;
+}
+.stMarkdown a { color: #58A6FF !important; }
+.stMarkdown code { color: #F0883E !important; }
+[data-testid="stChatMessage"] p,
+[data-testid="stChatMessage"] li,
+[data-testid="stChatMessage"] span {
+  color: #E6EDF3 !important;
+}
+[data-testid="stExpander"] summary span,
+[data-testid="stExpander"] p {
+  color: #C9D1D9 !important;
+}
+.stCaption, .stCaption p { color: #8B949E !important; }
+.stAlert p { color: #E6EDF3 !important; }
+input, textarea { color: #E6EDF3 !important; }
+[data-testid="stChatInput"] textarea { color: #E6EDF3 !important; }
+label { color: #C9D1D9 !important; }
+
 /* ── Sidebar ──────────────────────────────────────────────────────────────── */
 section[data-testid="stSidebar"] {
   background: #161B22 !important;
