@@ -1,0 +1,17 @@
+{
+  "reference": {
+    "path": "/path/to/a/technical-reference.pdf",
+    "label": "Technical Reference",
+    "shape": "technical reference (code blocks, tables, short lines)"
+  },
+  "prose": {
+    "path": "/path/to/a/dense-prose-document.pdf",
+    "label": "Dense Prose Document",
+    "shape": "dense continuous prose"
+  },
+  "slides": {
+    "path": "/path/to/a/lecture-deck.pdf",
+    "label": "Lecture Slides",
+    "shape": "lecture slides (sparse, fragmented text)"
+  }
+}

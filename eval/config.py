@@ -44,23 +44,30 @@ def load_env() -> None:
 # Three documents with deliberately different shapes, so the ablation reveals
 # where a setting helps and where it hurts, instead of one global average.
 
-DOCUMENTS = {
-    "mysql": {
-        "path": r"C:\Users\Lenovo\OneDrive\Desktop\Handbook & Code\MySQL Handbook.pdf",
-        "label": "MySQL Handbook",
-        "shape": "technical reference (code blocks, tables, short lines)",
-    },
-    "bi": {
-        "path": r"C:\Users\Lenovo\OneDrive\Study PDFs\Business Intelligence Exam Companion (A4).pdf",
-        "label": "BI Exam Companion",
-        "shape": "dense continuous prose (exam notes)",
-    },
-    "objrec": {
-        "path": r"C:\Users\Lenovo\Downloads\11.-Object-Recognition.pdf",
-        "label": "Object Recognition Slides",
-        "shape": "lecture slides (sparse, fragmented text)",
-    },
-}
+# Paths live in eval/documents.json, which is gitignored -- the corpus is local
+# study material, and hardcoding absolute paths would both leak the machine's
+# directory layout and make the harness unrunnable by anyone else.
+# Copy documents.example.json to documents.json and point it at your own PDFs.
+DOCUMENTS_PATH = EVAL_DIR / "documents.json"
+DOCUMENTS_EXAMPLE = EVAL_DIR / "documents.example.json"
+
+
+def _load_documents():
+    if DOCUMENTS_PATH.exists():
+        import json
+        return json.loads(DOCUMENTS_PATH.read_text(encoding="utf-8"))
+    raise SystemExit(
+        "Missing %s\n\n"
+        "The evaluation corpus is local PDFs, so paths are not committed.\n"
+        "Copy the example and edit it to point at three documents of your own:\n\n"
+        "    cp %s %s\n\n"
+        "Pick documents with DIFFERENT shapes -- a dense prose document, a\n"
+        "technical reference with short pages, and a slide deck. The contrast is\n"
+        "what makes chunk-size results meaningful rather than an average."
+        % (DOCUMENTS_PATH, DOCUMENTS_EXAMPLE.name, DOCUMENTS_PATH.name))
+
+
+DOCUMENTS = _load_documents()
 
 # ── Model settings ────────────────────────────────────────────────────────────
 EMBED_MODEL = "models/gemini-embedding-001"

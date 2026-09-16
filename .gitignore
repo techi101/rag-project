@@ -45,3 +45,6 @@ eval/__pycache__/
 # (textbooks//lecture notes) - keep them local, publish only the summary.
 eval/results/raw_*.json
 eval/qa_set_hard.json.bak
+
+# Evaluation corpus paths are local study material, not for publication
+eval/documents.json
