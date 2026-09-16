@@ -1,0 +1,636 @@
+[
+  {
+    "id": "q001",
+    "doc_id": "mysql",
+    "question": "What SQL command is shown for creating the example database?",
+    "reference_answer": "The page shows the command `CREATE DATABASE startersql;`.",
+    "fact_type": "procedure",
+    "gt_page": 4,
+    "answerable": true,
+    "reviewed": false,
+    "acceptable_pages": [
+      4,
+      65
+    ]
+  },
+  {
+    "id": "q002",
+    "doc_id": "mysql",
+    "question": "What is the syntax to insert two rows into the users table in a single INSERT statement?",
+    "reference_answer": "INSERT INTO users (name, email, gender, date_of_birth) VALUES ('Bob','bob@example.com','Male','1990-11-23'), ('Charlie','charlie@example.com','Other','1988-02-17');",
+    "fact_type": "procedure",
+    "gt_page": 9,
+    "answerable": true,
+    "reviewed": false,
+    "acceptable_pages": [
+      9,
+      44
+    ]
+  },
+  {
+    "id": "q003",
+    "doc_id": "mysql",
+    "question": "What should you run before executing a DELETE statement to verify which rows will be affected?",
+    "reference_answer": "You should run a SELECT with the same WHERE clause first to confirm what will be affected.",
+    "fact_type": "procedure",
+    "gt_page": 19,
+    "answerable": true,
+    "reviewed": false,
+    "acceptable_pages": [
+      19
+    ]
+  },
+  {
+    "id": "q004",
+    "doc_id": "mysql",
+    "question": "Which function and arguments are used to determine whether a user ID is even or odd?",
+    "reference_answer": "The query uses MOD(id, 2) to compute the remainder, indicating even or odd IDs.",
+    "fact_type": "name",
+    "gt_page": 27,
+    "answerable": true,
+    "reviewed": false,
+    "acceptable_pages": [
+      27
+    ]
+  },
+  {
+    "id": "q005",
+    "doc_id": "mysql",
+    "question": "What is the default ON DELETE behavior in MySQL when a parent row has related child rows?",
+    "reference_answer": "The default is RESTRICT, which prevents deletion of the parent if a child row exists.",
+    "fact_type": "definition",
+    "gt_page": 37,
+    "answerable": true,
+    "reviewed": false,
+    "acceptable_pages": [
+      37
+    ]
+  },
+  {
+    "id": "q006",
+    "doc_id": "mysql",
+    "question": "In MySQL, what does a LEFT JOIN return when a row in the left table has no matching row in the right table?",
+    "reference_answer": "It returns all rows from the left table (users) and matching rows from the right table (addresses); if no match is found, NULLs are returned.",
+    "fact_type": "definition",
+    "gt_page": 40,
+    "answerable": true,
+    "reviewed": false,
+    "edited_from": "What does a LEFT JOIN return according to the description on this page?",
+    "edit_reason": "rewritten to be self-contained; original referenced the source page",
+    "acceptable_pages": [
+      40,
+      41
+    ]
+  },
+  {
+    "id": "q007",
+    "doc_id": "mysql",
+    "question": "What does the UNION operator do with duplicate rows by default?",
+    "reference_answer": "UNION removes duplicates by default.",
+    "fact_type": "definition",
+    "gt_page": 45,
+    "answerable": true,
+    "reviewed": false,
+    "acceptable_pages": [
+      43,
+      45
+    ]
+  },
+  {
+    "id": "q008",
+    "doc_id": "mysql",
+    "question": "Which SQL statement sets Raj's salary to 72000 in the users table?",
+    "reference_answer": "The statement is: `UPDATE users SET salary =72000 WHERE name ='Raj';`",
+    "fact_type": "procedure",
+    "gt_page": 51,
+    "answerable": true,
+    "reviewed": false,
+    "edited_from": "What SQL statement is used on page 52 to change Raj's salary to 72000?",
+    "edit_reason": "rewritten to be self-contained; original referenced the source page",
+    "acceptable_pages": [
+      51
+    ]
+  },
+  {
+    "id": "q009",
+    "doc_id": "mysql",
+    "question": "What example command does the page give for dropping an index named 'idx_email' on the 'users' table?",
+    "reference_answer": "The example command is: DROP INDEX idx_email ON users;",
+    "fact_type": "procedure",
+    "gt_page": 55,
+    "answerable": true,
+    "reviewed": false,
+    "acceptable_pages": [
+      55
+    ]
+  },
+  {
+    "id": "q010",
+    "doc_id": "mysql",
+    "question": "What query is used as the inner subquery to compute the average salary in the scalar subquery example?",
+    "reference_answer": "The inner query is `SELECT AVG(salary) FROM users`, which returns the average salary.",
+    "fact_type": "procedure",
+    "gt_page": 56,
+    "answerable": true,
+    "reviewed": false,
+    "acceptable_pages": [
+      25,
+      56,
+      57,
+      59,
+      60
+    ]
+  },
+  {
+    "id": "q011",
+    "doc_id": "mysql",
+    "question": "What salary amount is used as the threshold for selecting referrers in the example subquery?",
+    "reference_answer": "The subquery selects users with a salary greater than ₹75,000.",
+    "fact_type": "number",
+    "gt_page": 57,
+    "answerable": true,
+    "reviewed": false,
+    "acceptable_pages": [
+      57
+    ]
+  },
+  {
+    "id": "q012",
+    "doc_id": "mysql",
+    "question": "What command resets the delimiter to its default after defining a stored procedure?",
+    "reference_answer": "The command is `DELIMITER ;` which restores the standard semicolon delimiter.",
+    "fact_type": "procedure",
+    "gt_page": 63,
+    "answerable": true,
+    "reviewed": false,
+    "acceptable_pages": [
+      63
+    ]
+  },
+  {
+    "id": "q013",
+    "doc_id": "mysql",
+    "question": "What ENUM values are allowed for the p_gender input parameter in the AddUser stored procedure?",
+    "reference_answer": "The p_gender parameter is defined as ENUM('Male','Female','Other').",
+    "fact_type": "definition",
+    "gt_page": 64,
+    "answerable": true,
+    "reviewed": false,
+    "acceptable_pages": [
+      64
+    ]
+  },
+  {
+    "id": "q014",
+    "doc_id": "mysql",
+    "question": "Which SQL statement lists the stored procedures in the 'startersql' database?",
+    "reference_answer": "SHOW PROCEDURE STATUS WHERE Db ='startersql';",
+    "fact_type": "name",
+    "gt_page": 65,
+    "answerable": true,
+    "reviewed": false,
+    "acceptable_pages": [
+      65
+    ]
+  },
+  {
+    "id": "q015",
+    "doc_id": "mysql",
+    "question": "When defining a MySQL trigger, what options specify whether it runs before or after the triggering event?",
+    "reference_answer": "Triggers can be fired BEFORE or AFTER an event.",
+    "fact_type": "procedure",
+    "gt_page": 66,
+    "answerable": true,
+    "reviewed": false,
+    "acceptable_pages": [
+      66
+    ]
+  },
+  {
+    "id": "q016",
+    "doc_id": "mysql",
+    "question": "How do you enable and configure the MySQL slow query log?",
+    "reference_answer": "NOT IN DOCUMENT - the system should say it cannot find this.",
+    "fact_type": "unanswerable",
+    "why_absent": "The document sample only covers installation, basic concepts, and simple SQL commands, and does not include any information about logging or performance configuration.",
+    "gt_page": null,
+    "answerable": false,
+    "reviewed": false,
+    "acceptable_pages": []
+  },
+  {
+    "id": "q017",
+    "doc_id": "mysql",
+    "question": "What is the default storage engine in MySQL 8.0, and how can you alter a table to use the MyISAM engine instead of the default?",
+    "reference_answer": "NOT IN DOCUMENT - the system should say it cannot find this.",
+    "fact_type": "unanswerable",
+    "why_absent": "The sample only covers installation, basic SQL commands, and data types, and does not discuss storage engines or ALTER TABLE engine syntax.",
+    "gt_page": null,
+    "answerable": false,
+    "reviewed": false,
+    "acceptable_pages": []
+  },
+  {
+    "id": "q018",
+    "doc_id": "bi",
+    "question": "What are the three categories of data that feed a data warehouse?",
+    "reference_answer": "Internal data, external data, and personal data.",
+    "fact_type": "concept",
+    "gt_page": 18,
+    "answerable": true,
+    "reviewed": false,
+    "acceptable_pages": [
+      16,
+      18
+    ]
+  },
+  {
+    "id": "q019",
+    "doc_id": "bi",
+    "question": "In the worked example of a sales fact table with dimensions time, product, and region, how many atomic cells are there?",
+    "reference_answer": "There are 36 atomic cells (4 × 3 × 3).",
+    "fact_type": "number",
+    "gt_page": 24,
+    "answerable": true,
+    "reviewed": false,
+    "acceptable_pages": [
+      24
+    ]
+  },
+  {
+    "id": "q020",
+    "doc_id": "bi",
+    "question": "In the churn example, how many periods separate the observation of explanatory attributes from the target variable?",
+    "reference_answer": "The explanatory attributes are observed in period t−2 while the target is observed in period t, which is a gap of two periods.",
+    "fact_type": "number",
+    "gt_page": 33,
+    "answerable": true,
+    "reviewed": false,
+    "acceptable_pages": [
+      33
+    ]
+  },
+  {
+    "id": "q021",
+    "doc_id": "bi",
+    "question": "In the Rosenblatt perceptron, what is the constant term that is subtracted from the weighted sum called?",
+    "reference_answer": "It is called the distortion (bias) and is denoted by the symbol θ.",
+    "fact_type": "name",
+    "gt_page": 36,
+    "answerable": true,
+    "reviewed": false,
+    "acceptable_pages": [
+      36
+    ]
+  },
+  {
+    "id": "q022",
+    "doc_id": "bi",
+    "question": "Which type of window groups events that are separated by less than a specified gap threshold?",
+    "reference_answer": "A session window groups events separated by less than a gap threshold.",
+    "fact_type": "definition",
+    "gt_page": 53,
+    "answerable": true,
+    "reviewed": false,
+    "acceptable_pages": [
+      53
+    ]
+  },
+  {
+    "id": "q023",
+    "doc_id": "bi",
+    "question": "What are the five stages of the e-commerce funnel described?",
+    "reference_answer": "The funnel stages are: visit → product view → add to cart → checkout initiation → purchase.",
+    "fact_type": "procedure",
+    "gt_page": 54,
+    "answerable": true,
+    "reviewed": false,
+    "acceptable_pages": [
+      54
+    ]
+  },
+  {
+    "id": "q024",
+    "doc_id": "bi",
+    "question": "What are the three forms of the cold‑start problem described for recommender systems?",
+    "reference_answer": "A new user with no history, a new item with no ratings, and a new system with neither.",
+    "fact_type": "definition",
+    "gt_page": 55,
+    "answerable": true,
+    "reviewed": false,
+    "acceptable_pages": [
+      55
+    ]
+  },
+  {
+    "id": "q025",
+    "doc_id": "bi",
+    "question": "What is the course code for the Business Intelligence mid-semester examination?",
+    "reference_answer": "EAEPE67",
+    "fact_type": "name",
+    "gt_page": 57,
+    "answerable": true,
+    "reviewed": false,
+    "acceptable_pages": [
+      57
+    ]
+  },
+  {
+    "id": "q026",
+    "doc_id": "bi",
+    "question": "What is the significance of the model management subsystem in a decision support system?",
+    "reference_answer": "It serves as the analytical brain, using quantitative models to transform data into knowledge, which distinguishes a DSS from an ordinary information system and enables scenario and what‑if experimentation.",
+    "fact_type": "concept",
+    "gt_page": 60,
+    "answerable": true,
+    "reviewed": false,
+    "acceptable_pages": [
+      14,
+      60
+    ]
+  },
+  {
+    "id": "q027",
+    "doc_id": "bi",
+    "question": "How many sub-questions are taken from Unit I in the model paper?",
+    "reference_answer": "Nine sub-questions from Unit I.",
+    "fact_type": "number",
+    "gt_page": 64,
+    "answerable": true,
+    "reviewed": false,
+    "acceptable_pages": [
+      64
+    ]
+  },
+  {
+    "id": "q028",
+    "doc_id": "bi",
+    "question": "In a data warehouse, what does the 'Time-variant' characteristic mean?",
+    "reference_answer": "All data are labelled with the time period they refer to, so the warehouse is a sequence of non‑volatile snapshots and historical trend analysis becomes possible.",
+    "fact_type": "definition",
+    "gt_page": 70,
+    "answerable": true,
+    "reviewed": false,
+    "acceptable_pages": [
+      19,
+      70
+    ]
+  },
+  {
+    "id": "q029",
+    "doc_id": "bi",
+    "question": "What conventional value is suggested for encoding missing values of a positive continuous attribute?",
+    "reference_answer": "The text recommends using –1 as the conventional value.",
+    "fact_type": "definition",
+    "gt_page": 71,
+    "answerable": true,
+    "reviewed": false,
+    "acceptable_pages": [
+      71
+    ]
+  },
+  {
+    "id": "q030",
+    "doc_id": "bi",
+    "question": "What is the definition of a supply chain as presented in the text?",
+    "reference_answer": "A network of connected and interdependent organizational units that operate in a coordinated way to manage, control and improve the flow of materials and information from suppliers through to end customers, passing through a company's procurement, processing and distribution subsystems.",
+    "fact_type": "definition",
+    "gt_page": 80,
+    "answerable": true,
+    "reviewed": false,
+    "acceptable_pages": [
+      80
+    ]
+  },
+  {
+    "id": "q031",
+    "doc_id": "bi",
+    "question": "How many minutes are allocated for the question on support, confidence, and lift?",
+    "reference_answer": "3–5 minutes.",
+    "fact_type": "number",
+    "gt_page": 83,
+    "answerable": true,
+    "reviewed": false,
+    "acceptable_pages": [
+      83
+    ]
+  },
+  {
+    "id": "q032",
+    "doc_id": "bi",
+    "question": "What is a Type 2 slowly changing dimension, and how is it implemented in a star schema?",
+    "reference_answer": "NOT IN DOCUMENT - the system should say it cannot find this.",
+    "fact_type": "unanswerable",
+    "why_absent": "The document’s excerpt never mentions slowly changing dimensions or their implementation details.",
+    "gt_page": null,
+    "answerable": false,
+    "reviewed": false,
+    "acceptable_pages": []
+  },
+  {
+    "id": "q033",
+    "doc_id": "bi",
+    "question": "What is the typical annual maintenance budget (in USD) for a mid-sized company's Business Intelligence platform according to the 2023 industry benchmark?",
+    "reference_answer": "NOT IN DOCUMENT - the system should say it cannot find this.",
+    "fact_type": "unanswerable",
+    "why_absent": "The document only outlines exam topics and structure, not specific financial benchmarks or cost figures.",
+    "gt_page": null,
+    "answerable": false,
+    "reviewed": false,
+    "acceptable_pages": []
+  },
+  {
+    "id": "q034",
+    "doc_id": "objrec",
+    "question": "Which operations are given as examples of preprocessing in the object recognition pipeline?",
+    "reference_answer": "Resizing, normalizing, or enhancing the image.",
+    "fact_type": "procedure",
+    "gt_page": 3,
+    "answerable": true,
+    "reviewed": false,
+    "acceptable_pages": [
+      3
+    ]
+  },
+  {
+    "id": "q035",
+    "doc_id": "objrec",
+    "question": "What does detection involve in object recognition?",
+    "reference_answer": "Detection involves localizing and classifying objects within an image.",
+    "fact_type": "definition",
+    "gt_page": 4,
+    "answerable": true,
+    "reviewed": false,
+    "acceptable_pages": [
+      4
+    ]
+  },
+  {
+    "id": "q036",
+    "doc_id": "objrec",
+    "question": "What is the title of the 2014 paper by Ross Girshick and colleagues that introduced the R-CNN?",
+    "reference_answer": "The paper is titled “Rich feature hierarchies for accurate object detection and semantic segmentation.”",
+    "fact_type": "name",
+    "gt_page": 11,
+    "answerable": true,
+    "reviewed": false,
+    "acceptable_pages": [
+      11
+    ]
+  },
+  {
+    "id": "q037",
+    "doc_id": "objrec",
+    "question": "What deep convolutional neural network does RCNN use as its feature extractor?",
+    "reference_answer": "RCNN uses the AlexNet deep CNN that won the ILSVRC‑2012 image classification competition as its feature extractor.",
+    "fact_type": "name",
+    "gt_page": 14,
+    "answerable": true,
+    "reviewed": false,
+    "acceptable_pages": [
+      14
+    ]
+  },
+  {
+    "id": "q038",
+    "doc_id": "objrec",
+    "question": "Who proposed Fast R-CNN and where were they working at the time?",
+    "reference_answer": "Ross Girshick, then at Microsoft Research, proposed Fast R-CNN.",
+    "fact_type": "name",
+    "gt_page": 15,
+    "answerable": true,
+    "reviewed": false,
+    "acceptable_pages": [
+      15
+    ]
+  },
+  {
+    "id": "q039",
+    "doc_id": "objrec",
+    "question": "Which earlier method, introduced in a 2014 paper, was used to speed up feature extraction before Fast R-CNN?",
+    "reference_answer": "Spatial pyramid pooling networks, or SPPnets, introduced in the 2014 paper “Spatial Pyramid Pooling in Deep Convolutional Networks for Visual Recognition.”",
+    "fact_type": "name",
+    "gt_page": 16,
+    "answerable": true,
+    "reviewed": false,
+    "acceptable_pages": [
+      16
+    ]
+  },
+  {
+    "id": "q040",
+    "doc_id": "objrec",
+    "question": "In Faster-RCNN, what does the binary class prediction indicate for each proposed region?",
+    "reference_answer": "It indicates the presence of an object or not, i.e., the “objectness” of the proposed region.",
+    "fact_type": "definition",
+    "gt_page": 25,
+    "answerable": true,
+    "reviewed": false,
+    "acceptable_pages": [
+      25
+    ]
+  },
+  {
+    "id": "q041",
+    "doc_id": "objrec",
+    "question": "What is the name of the 2017 paper that extends Faster R-CNN to support image segmentation?",
+    "reference_answer": "The extension is described in the 2017 paper “Mask R-CNN.”",
+    "fact_type": "name",
+    "gt_page": 26,
+    "answerable": true,
+    "reviewed": false,
+    "acceptable_pages": [
+      26
+    ]
+  },
+  {
+    "id": "q042",
+    "doc_id": "objrec",
+    "question": "Which layer is used to standardize the size of candidate bounding boxes after the Region Proposal Network in Faster R-CNN?",
+    "reference_answer": "An RoI pooling layer is applied to the candidate bounding boxes to bring all the candidates to the same size.",
+    "fact_type": "procedure",
+    "gt_page": 30,
+    "answerable": true,
+    "reviewed": false,
+    "acceptable_pages": [
+      30
+    ]
+  },
+  {
+    "id": "q043",
+    "doc_id": "objrec",
+    "question": "In Mask R-CNN, what operation is used to make regions of varying shapes uniform before they are passed to the fully connected network?",
+    "reference_answer": "A pooling layer is applied to convert all the regions to the same shape.",
+    "fact_type": "procedure",
+    "gt_page": 33,
+    "answerable": true,
+    "reviewed": false,
+    "acceptable_pages": [
+      33
+    ]
+  },
+  {
+    "id": "q044",
+    "doc_id": "objrec",
+    "question": "What IoU threshold must a predicted region meet to be considered a region of interest in Mask R-CNN?",
+    "reference_answer": "A region is considered a region of interest only if its IoU is greater than or equal to 0.5.",
+    "fact_type": "number",
+    "gt_page": 34,
+    "answerable": true,
+    "reviewed": false,
+    "acceptable_pages": [
+      34
+    ]
+  },
+  {
+    "id": "q045",
+    "doc_id": "objrec",
+    "question": "How long did it take to train the Mask R-CNN model on the COCO dataset?",
+    "reference_answer": "It took roughly 1 to 2 days to train the Mask R-CNN on the COCO dataset.",
+    "fact_type": "number",
+    "gt_page": 39,
+    "answerable": true,
+    "reviewed": false,
+    "acceptable_pages": [
+      39
+    ]
+  },
+  {
+    "id": "q046",
+    "doc_id": "objrec",
+    "question": "What is the highest frame rate reported for a speed‑optimized version of the YOLO model?",
+    "reference_answer": "It operates at up to 155 frames per second for a speed‑optimized version of the model.",
+    "fact_type": "number",
+    "gt_page": 45,
+    "answerable": true,
+    "reviewed": false,
+    "acceptable_pages": [
+      45
+    ]
+  },
+  {
+    "id": "q047",
+    "doc_id": "objrec",
+    "question": "How many object classes can the YOLO9000 model predict?",
+    "reference_answer": "It is capable of predicting 9,000 object classes.",
+    "fact_type": "number",
+    "gt_page": 54,
+    "answerable": true,
+    "reviewed": false,
+    "acceptable_pages": [
+      54
+    ]
+  },
+  {
+    "id": "q048",
+    "doc_id": "objrec",
+    "question": "What mean average precision (mAP) did the original R-CNN achieve on the COCO test-dev dataset?",
+    "reference_answer": "NOT IN DOCUMENT - the system should say it cannot find this.",
+    "fact_type": "unanswerable",
+    "why_absent": "The document only mentions results on VOC-2012 and ILSVRC-2013, not on the COCO dataset.",
+    "gt_page": null,
+    "answerable": false,
+    "reviewed": false,
+    "acceptable_pages": []
+  }
+]

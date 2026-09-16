@@ -1,0 +1,599 @@
+[
+  {
+    "id": "h001",
+    "doc_id": "mysql",
+    "question": "What is the sample name used for the new data container in the introductory instructions?",
+    "reference_answer": "startersql",
+    "fact_type": "name",
+    "gt_page": 4,
+    "answerable": true,
+    "reviewed": false,
+    "lexical_overlap": 0.333,
+    "acceptable_pages": [
+      4
+    ]
+  },
+  {
+    "id": "h002",
+    "doc_id": "mysql",
+    "question": "When adding new rows to a table, which technique involves mentioning only the fields you are supplying values for, making the operation clearer and safer if the table layout changes later?",
+    "reference_answer": "The technique that lists the specific attributes to be filled (i.e., naming the fields) before providing the corresponding values.",
+    "fact_type": "procedure",
+    "gt_page": 9,
+    "answerable": true,
+    "reviewed": false,
+    "lexical_overlap": 0.389,
+    "acceptable_pages": [
+      9
+    ]
+  },
+  {
+    "id": "h003",
+    "doc_id": "mysql",
+    "question": "Before permanently erasing records, what precaution does the guide recommend to see which entries match the criteria?",
+    "reference_answer": "Run a retrieval query using the same condition first to preview the affected rows.",
+    "fact_type": "procedure",
+    "gt_page": 19,
+    "answerable": true,
+    "reviewed": false,
+    "lexical_overlap": 0.182,
+    "acceptable_pages": [
+      19
+    ]
+  },
+  {
+    "id": "h004",
+    "doc_id": "mysql",
+    "question": "Which built‑in operation returns the leftover part after dividing one integer by another, and can be used to check if a user’s identifier is divisible by two?",
+    "reference_answer": "MOD",
+    "fact_type": "name",
+    "gt_page": 27,
+    "answerable": true,
+    "reviewed": false,
+    "lexical_overlap": 0.077,
+    "acceptable_pages": [
+      27
+    ]
+  },
+  {
+    "id": "h005",
+    "doc_id": "mysql",
+    "question": "What does the database system do when you try to erase a person record that still has linked location entries, without any special rule set up?",
+    "reference_answer": "It raises an error and prevents the deletion.",
+    "fact_type": "concept",
+    "gt_page": 37,
+    "answerable": true,
+    "reviewed": false,
+    "lexical_overlap": 0.125,
+    "acceptable_pages": [
+      37
+    ]
+  },
+  {
+    "id": "h006",
+    "doc_id": "mysql",
+    "question": "When combining a list of people with a list of their cities using the approach that keeps every person even if they lack a city entry, what appears in the city field for those without a matching city record?",
+    "reference_answer": "NULL",
+    "fact_type": "concept",
+    "gt_page": 40,
+    "answerable": true,
+    "reviewed": false,
+    "lexical_overlap": 0.125,
+    "acceptable_pages": [
+      40
+    ]
+  },
+  {
+    "id": "h007",
+    "doc_id": "mysql",
+    "question": "When merging two separate rosters of individuals without explicitly requesting to keep every entry, what does the system do with people who appear in both rosters?",
+    "reference_answer": "It discards the extra copies, leaving only a single instance of each person.",
+    "fact_type": "concept",
+    "gt_page": 45,
+    "answerable": true,
+    "reviewed": false,
+    "lexical_overlap": 0.143,
+    "acceptable_pages": [
+      45
+    ]
+  },
+  {
+    "id": "h008",
+    "doc_id": "mysql",
+    "question": "If you adjust a person's earnings in the main table, will the previously defined filtered list automatically include that person without any extra steps?",
+    "reference_answer": "Yes, after raising Raj's earnings to 72000, he appears in the high‑earning list even though the list definition wasn't modified.",
+    "fact_type": "procedure",
+    "gt_page": 51,
+    "answerable": true,
+    "reviewed": false,
+    "lexical_overlap": 0.214,
+    "acceptable_pages": [
+      51
+    ]
+  },
+  {
+    "id": "h009",
+    "doc_id": "mysql",
+    "question": "In the example that finds people introduced by someone with a high earnings amount, what is the earnings threshold that the inner selection uses to pick those introducers?",
+    "reference_answer": "Over 75,000 rupees",
+    "fact_type": "number",
+    "gt_page": 57,
+    "answerable": true,
+    "reviewed": false,
+    "lexical_overlap": 0.231,
+    "acceptable_pages": [
+      57
+    ]
+  },
+  {
+    "id": "h010",
+    "doc_id": "mysql",
+    "question": "When defining a reusable set of database commands, what alternate ending marker is commonly set before writing the commands to prevent confusion with the normal command terminator?",
+    "reference_answer": "$$",
+    "fact_type": "concept",
+    "gt_page": 63,
+    "answerable": true,
+    "reviewed": false,
+    "lexical_overlap": 0.125,
+    "acceptable_pages": [
+      63
+    ]
+  },
+  {
+    "id": "h011",
+    "doc_id": "mysql",
+    "question": "What label is assigned to the routine that records a new individual's details into the data collection?",
+    "reference_answer": "AddUser",
+    "fact_type": "name",
+    "gt_page": 64,
+    "answerable": true,
+    "reviewed": false,
+    "lexical_overlap": 0.2,
+    "acceptable_pages": [
+      64
+    ]
+  },
+  {
+    "id": "h012",
+    "doc_id": "mysql",
+    "question": "Which command lets you temporarily modify the character that separates individual commands in a script?",
+    "reference_answer": "DELIMITER $$",
+    "fact_type": "name",
+    "gt_page": 65,
+    "answerable": true,
+    "reviewed": false,
+    "lexical_overlap": 0.222,
+    "acceptable_pages": [
+      65
+    ]
+  },
+  {
+    "id": "h013",
+    "doc_id": "bi",
+    "question": "If you list every combination of four seasonal periods, three geographic areas, and three kinds of merchandise, and then add every possible subtotal and the overall total, how many individual entries will you have in total?",
+    "reference_answer": "80",
+    "fact_type": "number",
+    "gt_page": 24,
+    "answerable": true,
+    "reviewed": false,
+    "lexical_overlap": 0.316,
+    "acceptable_pages": [
+      24
+    ]
+  },
+  {
+    "id": "h014",
+    "doc_id": "bi",
+    "question": "According to the example, how many upcoming time steps must the prediction cover so that corrective measures can be applied in time?",
+    "reference_answer": "Two",
+    "fact_type": "number",
+    "gt_page": 33,
+    "answerable": true,
+    "reviewed": false,
+    "lexical_overlap": 0.455,
+    "acceptable_pages": [
+      33
+    ]
+  },
+  {
+    "id": "h015",
+    "doc_id": "bi",
+    "question": "In the most basic single-unit model mentioned, which symbol denotes the constant offset that is subtracted from the weighted sum before applying the decision rule?",
+    "reference_answer": "θ",
+    "fact_type": "definition",
+    "gt_page": 36,
+    "answerable": true,
+    "reviewed": false,
+    "lexical_overlap": 0.353,
+    "acceptable_pages": [
+      36
+    ]
+  },
+  {
+    "id": "h016",
+    "doc_id": "bi",
+    "question": "How long is the mid-semester examination scheduled to last?",
+    "reference_answer": "90 minutes",
+    "fact_type": "number",
+    "gt_page": 57,
+    "answerable": true,
+    "reviewed": false,
+    "lexical_overlap": 0.5,
+    "acceptable_pages": [
+      57
+    ]
+  },
+  {
+    "id": "h017",
+    "doc_id": "bi",
+    "question": "If the essential variable needed for a predictive model is missing from some entries, what action does the guide advise taking with those entries?",
+    "reference_answer": "Delete the records that have missing values.",
+    "fact_type": "procedure",
+    "gt_page": 71,
+    "answerable": true,
+    "reviewed": false,
+    "lexical_overlap": 0.25,
+    "acceptable_pages": [
+      71
+    ]
+  },
+  {
+    "id": "h018",
+    "doc_id": "bi",
+    "question": "In the automobile data illustration, how many of the newly formed combined variables capture roughly four‑fifths of the total variation?",
+    "reference_answer": "Two",
+    "fact_type": "number",
+    "gt_page": 73,
+    "answerable": true,
+    "reviewed": false,
+    "lexical_overlap": 0.357,
+    "acceptable_pages": [
+      73
+    ]
+  },
+  {
+    "id": "h019",
+    "doc_id": "bi",
+    "question": "In the ten‑transaction illustration, how many pairs of items satisfied the minimum occurrence threshold?",
+    "reference_answer": "6",
+    "fact_type": "number",
+    "gt_page": 75,
+    "answerable": true,
+    "reviewed": false,
+    "lexical_overlap": 0.4,
+    "acceptable_pages": [
+      75
+    ]
+  },
+  {
+    "id": "h020",
+    "doc_id": "bi",
+    "question": "Why does the text argue that using advanced mathematical planning tools is preferable to spreadsheets or standard ERP modules when arranging the flow of goods and information?",
+    "reference_answer": "Because spreadsheets, simulation tools, and the built‑in unlimited‑capacity planning features of ERP systems cannot capture the complex interdependencies of a production and distribution system, while mathematical planning techniques can accurately represent the relationships among capacity, resources, schedules, inventory, batch sizes, lead times, and movement flows while accounting for the various costs involved.",
+    "fact_type": "concept",
+    "gt_page": 80,
+    "answerable": true,
+    "reviewed": false,
+    "lexical_overlap": 0.4,
+    "acceptable_pages": [
+      80
+    ]
+  },
+  {
+    "id": "h021",
+    "doc_id": "bi",
+    "question": "If you have n distinct items, how many different if‑then relationships could be formed according to the combinatorial expression shown on the page?",
+    "reference_answer": "3^n − 2^{n+1} + 1",
+    "fact_type": "concept",
+    "gt_page": 87,
+    "answerable": true,
+    "reviewed": false,
+    "lexical_overlap": 0.182,
+    "acceptable_pages": [
+      87
+    ]
+  },
+  {
+    "id": "h022",
+    "doc_id": "objrec",
+    "question": "When a system tries to identify items in a picture, it breaks the work into two stages. What is the first stage that involves adjusting the picture’s size, scaling its values, or improving its visual quality, and what is the second stage that pulls out distinguishing patterns such as lines, points, surface details, or complex shapes learned by advanced models?",
+    "reference_answer": "The first stage is preparing the image by resizing, normalizing, or enhancing it. The second stage is extracting discriminative patterns, which can be simple visual cues like edges, corners, or textures, as well as higher‑level patterns learned by deep neural networks.",
+    "fact_type": "procedure",
+    "gt_page": 3,
+    "answerable": true,
+    "reviewed": false,
+    "lexical_overlap": 0.147,
+    "acceptable_pages": [
+      3
+    ]
+  },
+  {
+    "id": "h023",
+    "doc_id": "objrec",
+    "question": "After determining what appears in an image or locating items within it, what follow‑up step is typically performed to improve the outcomes?",
+    "reference_answer": "A cleanup stage that removes mistaken hits, groups similar findings, and estimates the objects' positions and properties.",
+    "fact_type": "procedure",
+    "gt_page": 4,
+    "answerable": true,
+    "reviewed": false,
+    "lexical_overlap": 0.231,
+    "acceptable_pages": [
+      4
+    ]
+  },
+  {
+    "id": "h024",
+    "doc_id": "objrec",
+    "question": "How many entries are in the characteristic list generated by the network that won the 2012 large‑scale image competition, before it is passed to the straight‑line classifier?",
+    "reference_answer": "4096",
+    "fact_type": "number",
+    "gt_page": 14,
+    "answerable": true,
+    "reviewed": false,
+    "lexical_overlap": 0.267,
+    "acceptable_pages": [
+      14
+    ]
+  },
+  {
+    "id": "h025",
+    "doc_id": "objrec",
+    "question": "During the learning stage of the original approach, how many individual components had to be prepared and run?",
+    "reference_answer": "Three",
+    "fact_type": "number",
+    "gt_page": 15,
+    "answerable": true,
+    "reviewed": false,
+    "lexical_overlap": 0.182,
+    "acceptable_pages": [
+      15
+    ]
+  },
+  {
+    "id": "h026",
+    "doc_id": "objrec",
+    "question": "In what way does the newer, quicker version of the region‑focused detection system change its overall architecture compared to the earlier approach that depended on reusing intermediate calculations?",
+    "reference_answer": "It is implemented as a single, unified model that directly learns and outputs both object locations and their categories, rather than using a multi‑step chain that first extracts features with a caching trick.",
+    "fact_type": "concept",
+    "gt_page": 16,
+    "answerable": true,
+    "reviewed": false,
+    "lexical_overlap": 0.056,
+    "acceptable_pages": [
+      16
+    ]
+  },
+  {
+    "id": "h027",
+    "doc_id": "objrec",
+    "question": "After the primary image analyzer finishes, what two pieces of information does the following quick‑check module provide for each suggested area?",
+    "reference_answer": "It supplies a collection of possible rectangular zones and a binary indication of whether each zone likely contains an object.",
+    "fact_type": "concept",
+    "gt_page": 25,
+    "answerable": true,
+    "reviewed": false,
+    "lexical_overlap": 0.067,
+    "acceptable_pages": [
+      25
+    ]
+  },
+  {
+    "id": "h028",
+    "doc_id": "objrec",
+    "question": "What is the 2017 follow‑up model called that broadens the original framework to also outline individual object borders?",
+    "reference_answer": "Mask R-CNN",
+    "fact_type": "name",
+    "gt_page": 26,
+    "answerable": true,
+    "reviewed": false,
+    "lexical_overlap": 0.182,
+    "acceptable_pages": [
+      26
+    ]
+  },
+  {
+    "id": "h029",
+    "doc_id": "objrec",
+    "question": "What are the four sequential steps that the object-detection method shown on this slide carries out, from processing the picture to producing the final object locations?",
+    "reference_answer": "1. It first runs a deep visual pattern extractor on the image. 2. It then uses a separate component that suggests possible object regions. 3. Those suggested regions are resized to a uniform shape through a pooling operation. 4. Finally, a dense decision unit assigns a category to each region and outputs the refined location coordinates.",
+    "fact_type": "procedure",
+    "gt_page": 30,
+    "answerable": true,
+    "reviewed": false,
+    "lexical_overlap": 0.214,
+    "acceptable_pages": [
+      30
+    ]
+  },
+  {
+    "id": "h030",
+    "doc_id": "objrec",
+    "question": "When extending the earlier object‑detecting system that predicts a category and a surrounding rectangle, what additional visual detail does the newer version supply for each found item?",
+    "reference_answer": "It also outputs a pixel‑wise mask that outlines the exact shape of the object.",
+    "fact_type": "concept",
+    "gt_page": 33,
+    "answerable": true,
+    "reviewed": false,
+    "lexical_overlap": 0.0,
+    "acceptable_pages": [
+      33
+    ]
+  },
+  {
+    "id": "h031",
+    "doc_id": "objrec",
+    "question": "What is the smallest proportion of overlap required between a guessed bounding area and the actual one for the system to keep that guess for later processing?",
+    "reference_answer": "0.5",
+    "fact_type": "number",
+    "gt_page": 34,
+    "answerable": true,
+    "reviewed": false,
+    "lexical_overlap": 0.071,
+    "acceptable_pages": [
+      34
+    ]
+  },
+  {
+    "id": "h032",
+    "doc_id": "objrec",
+    "question": "Roughly what duration was required to teach the system using the well‑known collection of everyday pictures?",
+    "reference_answer": "about one to two days",
+    "fact_type": "number",
+    "gt_page": 39,
+    "answerable": true,
+    "reviewed": false,
+    "lexical_overlap": 0.0,
+    "acceptable_pages": [
+      39
+    ]
+  },
+  {
+    "id": "h033",
+    "doc_id": "objrec",
+    "question": "Which two scientists published the 2016 research paper that presented an enhanced, speedier, and more robust iteration of the rapid image‑identification system?",
+    "reference_answer": "Joseph Redmon and Ali Farhadi",
+    "fact_type": "name",
+    "gt_page": 54,
+    "answerable": true,
+    "reviewed": false,
+    "lexical_overlap": 0.071,
+    "acceptable_pages": [
+      54
+    ]
+  },
+  {
+    "id": "p034",
+    "doc_id": "mysql",
+    "question": "What is the default maximum connections limit in a fresh MySQL installation?",
+    "reference_answer": "NOT IN DOCUMENT - the system should say it cannot find this.",
+    "fact_type": "unanswerable",
+    "missing_detail": "default maximum connections limit",
+    "fact_angle": "a numeric threshold, limit, or default setting",
+    "gt_page": null,
+    "acceptable_pages": [],
+    "answerable": false,
+    "reviewed": false,
+    "verified_absent": true,
+    "verified_by": "bm25-retrieval + llm check of retrieved passages"
+  },
+  {
+    "id": "p035",
+    "doc_id": "mysql",
+    "question": "Which company is the current maintainer of MySQL Workbench?",
+    "reference_answer": "NOT IN DOCUMENT - the system should say it cannot find this.",
+    "fact_type": "unanswerable",
+    "missing_detail": "Oracle Corporation, developer of MySQL",
+    "fact_angle": "a named person, organisation, product, or publication identifier",
+    "gt_page": null,
+    "acceptable_pages": [],
+    "answerable": false,
+    "reviewed": false,
+    "verified_absent": true,
+    "verified_by": "bm25-retrieval + llm check of retrieved passages"
+  },
+  {
+    "id": "p036",
+    "doc_id": "mysql",
+    "question": "As of 2023, what percentage of MySQL installations use InnoDB as the default storage engine?",
+    "reference_answer": "NOT IN DOCUMENT - the system should say it cannot find this.",
+    "fact_type": "unanswerable",
+    "missing_detail": "percentage of installations using InnoDB",
+    "fact_angle": "a percentage, cost, duration, or date",
+    "gt_page": null,
+    "acceptable_pages": [],
+    "answerable": false,
+    "reviewed": false,
+    "verified_absent": true,
+    "verified_by": "bm25-retrieval + llm check of retrieved passages"
+  },
+  {
+    "id": "p037",
+    "doc_id": "bi",
+    "question": "According to the course textbook, what is the recommended maximum number of concurrent users for a 2‑tier data warehouse architecture?",
+    "reference_answer": "NOT IN DOCUMENT - the system should say it cannot find this.",
+    "fact_type": "unanswerable",
+    "missing_detail": "maximum concurrent users number",
+    "fact_angle": "a numeric threshold, limit, or default setting",
+    "gt_page": null,
+    "acceptable_pages": [],
+    "answerable": false,
+    "reviewed": false,
+    "verified_absent": true,
+    "verified_by": "bm25-retrieval + llm check of retrieved passages"
+  },
+  {
+    "id": "p038",
+    "doc_id": "bi",
+    "question": "What is the ISBN‑13 of the Pearson 10th edition textbook \"Business Intelligence and Analytics\" by Sharda, Delen & Turban referenced in the syllabus?",
+    "reference_answer": "NOT IN DOCUMENT - the system should say it cannot find this.",
+    "fact_type": "unanswerable",
+    "missing_detail": "ISBN‑13 of Sharda Delen Turban 10e",
+    "fact_angle": "a named person, organisation, product, or publication identifier",
+    "gt_page": null,
+    "acceptable_pages": [],
+    "answerable": false,
+    "reviewed": false,
+    "verified_absent": true,
+    "verified_by": "bm25-retrieval + llm check of retrieved passages"
+  },
+  {
+    "id": "p039",
+    "doc_id": "bi",
+    "question": "According to the 2023 exam notes, what is the recommended minimum percentage of data quality improvement that BI projects should achieve within the first six months of implementation?",
+    "reference_answer": "NOT IN DOCUMENT - the system should say it cannot find this.",
+    "fact_type": "unanswerable",
+    "missing_detail": "minimum data quality improvement percentage",
+    "fact_angle": "a percentage, cost, duration, or date",
+    "gt_page": null,
+    "acceptable_pages": [],
+    "answerable": false,
+    "reviewed": false,
+    "verified_absent": true,
+    "verified_by": "bm25-retrieval + llm check of retrieved passages"
+  },
+  {
+    "id": "p040",
+    "doc_id": "objrec",
+    "question": "What IoU threshold does the original R-CNN use for non‑maximum suppression when filtering overlapping detections?",
+    "reference_answer": "NOT IN DOCUMENT - the system should say it cannot find this.",
+    "fact_type": "unanswerable",
+    "missing_detail": "IoU threshold for NMS",
+    "fact_angle": "a numeric threshold, limit, or default setting",
+    "gt_page": null,
+    "acceptable_pages": [],
+    "answerable": false,
+    "reviewed": false,
+    "verified_absent": true,
+    "verified_by": "bm25-retrieval + llm check of retrieved passages"
+  },
+  {
+    "id": "p041",
+    "doc_id": "objrec",
+    "question": "What is the DOI of the 2014 R-CNN paper by Ross Girshick et al. titled “Rich feature hierarchies for accurate object detection and semantic segmentation”?",
+    "reference_answer": "NOT IN DOCUMENT - the system should say it cannot find this.",
+    "fact_type": "unanswerable",
+    "missing_detail": "the paper's DOI",
+    "fact_angle": "a named person, organisation, product, or publication identifier",
+    "gt_page": null,
+    "acceptable_pages": [],
+    "answerable": false,
+    "reviewed": false,
+    "verified_absent": true,
+    "verified_by": "bm25-retrieval + llm check of retrieved passages"
+  },
+  {
+    "id": "p042",
+    "doc_id": "objrec",
+    "question": "What percentage of the total inference time in the original R-CNN pipeline is spent on the selective search region proposal step?",
+    "reference_answer": "NOT IN DOCUMENT - the system should say it cannot find this.",
+    "fact_type": "unanswerable",
+    "missing_detail": "percentage of inference time for selective search",
+    "fact_angle": "a percentage, cost, duration, or date",
+    "gt_page": null,
+    "acceptable_pages": [],
+    "answerable": false,
+    "reviewed": false,
+    "verified_absent": true,
+    "verified_by": "bm25-retrieval + llm check of retrieved passages"
+  }
+]

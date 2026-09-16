@@ -36,3 +36,12 @@ desktop.ini
 
 # Jupyter
 .ipynb_checkpoints/
+
+# Evaluation harness generated artifacts (regenerable, large, or not for publication)
+eval/chroma_eval/
+eval/cache/
+eval/__pycache__/
+# Raw per-question results embed verbatim text from the source PDFs
+# (textbooks//lecture notes) - keep them local, publish only the summary.
+eval/results/raw_*.json
+eval/qa_set_hard.json.bak
