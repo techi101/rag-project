@@ -31,6 +31,19 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':
     except Exception:
         pass
 
+# ── ChromaDB sqlite3 compatibility (cloud deploys) ────────────────────────────
+# ChromaDB requires sqlite3 >= 3.35. Some Linux hosts - including Streamlit
+# Community Cloud - ship an older system sqlite3, so `import chromadb` dies at
+# startup before the app ever renders. pysqlite3-binary bundles a modern
+# sqlite3; swapping it into sys.modules before any Chroma import fixes that.
+# It is a linux-only wheel, so its absence on Windows/macOS is expected and
+# harmless - those platforms already ship a new enough sqlite3.
+try:
+    __import__("pysqlite3")
+    sys.modules["sqlite3"] = sys.modules.pop("pysqlite3")
+except ModuleNotFoundError:
+    pass
+
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma

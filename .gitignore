@@ -16,8 +16,9 @@ env/
 # ChromaDB vector store (large files, generated locally)
 chroma_store/
 
-# Streamlit cache
-.streamlit/
+# Streamlit: keep the committed theme (config.toml) so the deployed app
+# matches local, but never commit secrets.
+.streamlit/secrets.toml
 
 # Temp files
 *.tmp
