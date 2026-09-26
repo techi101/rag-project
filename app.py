@@ -409,10 +409,14 @@ with st.sidebar:
 
                     reader = PdfReader(tmp_path)
                     npages = len(reader.pages)
+                    # Count the real words instead of guessing per page;
+                    # read time assumes ~200 words per minute.
+                    nwords = sum(len((p.extract_text() or "").split())
+                                 for p in reader.pages)
                     st.session_state.doc_stats = {
                         "pages": npages,
-                        "read_time": f"~{max(1, npages * 2)} min",
-                        "words": f"~{npages * 300:,}",
+                        "read_time": f"~{max(1, round(nwords / 200))} min",
+                        "words": f"{nwords:,}",
                     }
                     st.session_state.doc_summary = generate_summary(tmp_path, groq_api_key)
 
@@ -446,7 +450,7 @@ with st.sidebar:
         c1, c2 = st.columns(2)
         c1.metric("Pages", st.session_state.doc_stats.get("pages", 0))
         c2.metric("Read Time", st.session_state.doc_stats.get("read_time", "—"))
-        st.caption(f"Est. {st.session_state.doc_stats.get('words','—')} words")
+        st.caption(f"{st.session_state.doc_stats.get('words','—')} words")
 
         st.divider()
         st.markdown("**⚙️ Actions**")
