@@ -178,7 +178,7 @@ def check_lexical_overlap():
     keyword matcher finds it without any semantic understanding. When that
     happens, high recall measures the question set, not the retriever.
 
-    BM25-only scored 100% recall@4 on this set -- the symptom that prompted this
+    BM25-only scored 97.7% recall@4 on this set -- the symptom that prompted this
     check. Here we quantify the cause.
     """
     print("\nCHECK 5: are questions lexically 'leaky' toward their source page?")
@@ -212,7 +212,7 @@ def check_lexical_overlap():
         print("       hardest: %s" % ", ".join("%s(%.0f%%)" % (o[1], 100 * o[0])
                                                for o in low[:6]))
     # Threshold set at 0.60 from EVIDENCE, not taste: at a measured 73% overlap,
-    # BM25-only retrieval scored 100% recall@4 (verify_retrieval.py). A set a
+    # BM25-only retrieval scored 97.7% recall@4 (verify_retrieval.py). A set a
     # keyword matcher cannot lose on does not discriminate between retrievers,
     # so anything at or above ~0.60 should be treated as failing.
     report("lexical-overlap", mean < 0.60,

@@ -1,9 +1,11 @@
 """
 app.py — DocuMind AI
-Premium RAG Document Intelligence powered by Gemini 1.5 Flash + ChromaDB.
+RAG document Q&A: Google gemini-embedding-001 + ChromaDB for retrieval,
+Groq openai/gpt-oss-20b for answers.
 """
 
 import os
+import html
 import tempfile
 import streamlit as st
 from pypdf import PdfReader
@@ -18,6 +20,7 @@ from rag_engine import (
     create_qa_chain,
     run_qa,
     generate_summary,
+    page_label,
 )
 
 # ── Page Config ─────────────────────────────────────────────────────────────────
@@ -398,6 +401,7 @@ with st.sidebar:
                 "qa_chain": None, "doc_summary": None, "processing": True,
             })
             with st.spinner("🔍 Embedding & indexing your document..."):
+                tmp_path = None
                 try:
                     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
                         tmp.write(uploaded_file.read())
@@ -426,6 +430,14 @@ with st.sidebar:
                 except Exception as e:
                     st.error(f"❌ {e}")
                     st.session_state.processing = False
+                finally:
+                    # The PDF is only needed while indexing; don't leave a copy
+                    # of every upload in the temp folder.
+                    if tmp_path and os.path.exists(tmp_path):
+                        try:
+                            os.remove(tmp_path)
+                        except OSError:
+                            pass
 
     # Analytics
     if st.session_state.qa_chain and st.session_state.doc_stats:
@@ -464,12 +476,12 @@ if not st.session_state.qa_chain:
                animation:none;">🧠</div>
           <div class="hero-title">DocuMind AI</div>
           <p class="hero-sub">Upload any PDF and have an intelligent conversation with it.<br>
-          Powered by Google Gemini &amp; semantic vector search.</p>
+          Powered by semantic vector search and Groq-hosted gpt-oss-20b.</p>
           <div style="text-align:center; margin-bottom:40px;">
-            <span class="badge-pill"><b>⚡</b> Gemini 1.5 Flash</span>
+            <span class="badge-pill"><b>⚡</b> Groq gpt-oss-20b</span>
             <span class="badge-pill"><b>🗄️</b> ChromaDB</span>
             <span class="badge-pill"><b>🔗</b> LangChain</span>
-            <span class="badge-pill"><b>🆓</b> 100% Free API</span>
+            <span class="badge-pill"><b>🆓</b> Free-tier APIs</span>
           </div>
         </div>
         """, unsafe_allow_html=True)
@@ -484,7 +496,7 @@ if not st.session_state.qa_chain:
             <div class="feat-card">
               <span class="feat-icon">📄</span>
               <div class="feat-title">Any PDF Document</div>
-              <div class="feat-desc">Research papers, contracts, financial reports, textbooks — any PDF up to 200MB supported.</div>
+              <div class="feat-desc">Research papers, contracts, financial reports, textbooks — any text-based PDF (scanned PDFs need OCR, not yet supported).</div>
             </div>""", unsafe_allow_html=True)
 
         with r1c2:
@@ -499,8 +511,8 @@ if not st.session_state.qa_chain:
             st.markdown("""
             <div class="feat-card">
               <span class="feat-icon">🎯</span>
-              <div class="feat-title">Zero Hallucination</div>
-              <div class="feat-desc">Gemini is strictly grounded to your document. If the answer isn't there, it clearly says so.</div>
+              <div class="feat-title">Grounded Answers</div>
+              <div class="feat-desc">The model is instructed to answer only from your document and to say so when the answer isn't there.</div>
             </div>""", unsafe_allow_html=True)
 
         st.write("")
@@ -520,7 +532,7 @@ if not st.session_state.qa_chain:
             <div class="feat-card">
               <span class="feat-icon">💬</span>
               <div class="feat-title">Conversation Memory</div>
-              <div class="feat-desc">Ask follow-up questions naturally. The AI remembers your full conversation context.</div>
+              <div class="feat-desc">Ask follow-up questions. The AI sees your earlier questions and answers in this session.</div>
             </div>""", unsafe_allow_html=True)
 
         with r2c3:
@@ -528,7 +540,7 @@ if not st.session_state.qa_chain:
             <div class="feat-card">
               <span class="feat-icon">📎</span>
               <div class="feat-title">Source Citations</div>
-              <div class="feat-desc">Every answer shows exact page numbers from your document for full transparency and verification.</div>
+              <div class="feat-desc">Every answer lists the retrieved passages and their page numbers, so you can check it.</div>
             </div>""", unsafe_allow_html=True)
 
     # ── HOW IT WORKS ──────────────────────────────────────────────────────────
@@ -541,7 +553,7 @@ if not st.session_state.qa_chain:
             (s1, "1", "Upload PDF", "Choose any PDF document from your device."),
             (s2, "2", "Chunk & Embed", "Text is split into paragraphs and converted into math vectors."),
             (s3, "3", "Stored in ChromaDB", "Vectors saved locally on disk for instant retrieval."),
-            (s4, "4", "Ask Anything", "Gemini reads the best-matching chunks and generates a cited answer."),
+            (s4, "4", "Ask Anything", "The LLM reads the best-matching chunks and generates a cited answer."),
         ]:
             with col:
                 st.markdown(f"""
@@ -560,7 +572,7 @@ else:
     <div class="chat-doc-bar">
       <span style="font-size:28px;">📄</span>
       <div>
-        <div class="chat-doc-name">{st.session_state.pdf_name}</div>
+        <div class="chat-doc-name">{html.escape(st.session_state.pdf_name or "")}</div>
         <div class="chat-doc-meta">
           {st.session_state.doc_stats.get('pages','?')} pages &nbsp;·&nbsp;
           {st.session_state.doc_stats.get('read_time','?')} read &nbsp;·&nbsp;
@@ -573,7 +585,7 @@ else:
 
     # Auto-Summary
     if st.session_state.doc_summary:
-        summary_html = st.session_state.doc_summary.replace("\n", "<br>")
+        summary_html = html.escape(st.session_state.doc_summary).replace("\n", "<br>")
         st.markdown(f"""
         <div class="summary-box">
           <div class="summary-label">✨ AI Executive Summary</div>
@@ -589,7 +601,7 @@ else:
             if message.get("sources"):
                 with st.expander(f"📎 {len(message['sources'])} Source Citations", expanded=False):
                     for doc in message["sources"]:
-                        pg = doc.metadata.get("page", "?") + 1
+                        pg = page_label(doc.metadata)
                         snippet = doc.page_content[:380].strip().replace("\n", " ")
                         st.markdown(f"**📄 Page {pg}**")
                         st.caption(f"{snippet}...")
@@ -639,7 +651,7 @@ else:
                     if sources:
                         with st.expander(f"📎 {len(sources)} Source Citations", expanded=False):
                             for doc in sources:
-                                pg = doc.metadata.get("page", "?") + 1
+                                pg = page_label(doc.metadata)
                                 snippet = doc.page_content[:380].strip().replace("\n", " ")
                                 st.markdown(f"**📄 Page {pg}**")
                                 st.caption(f"{snippet}...")

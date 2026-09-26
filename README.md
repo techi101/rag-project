@@ -39,7 +39,8 @@ Two things, and the second is the more interesting one.
 **1. A working RAG application.** Upload a PDF, it gets chunked, embedded and stored in a
 local vector database. Ask a question, the most relevant passages are retrieved and handed
 to an LLM that answers *only* from those passages, citing page numbers. Every processed PDF
-is cached by content hash, so re-uploading the same file is instant and costs nothing.
+is cached by content hash, so re-uploading the same file is instant and costs nothing
+(the cache is rebuilt if the chunk settings or embedding model change, or if the stored index is incomplete).
 
 **2. An evaluation harness that measures whether it works.** Most RAG demos stop at "it
 seemed fine when I tried it." This one ships with `eval/` — a suite that scores retrieval
@@ -97,7 +98,7 @@ Which is exactly why this project has an evaluation harness that scores retrieva
    user question ─────────────────────┤
                                       ▼
                          ┌──────────────────────────┐
-                         │  similarity search (k=4) │   cosine over embeddings
+                         │  similarity search (k=4) │   nearest by distance
                          └────────────┬─────────────┘
                                       ▼
                          ┌──────────────────────────┐
@@ -166,8 +167,10 @@ this is the single biggest cost saving in the app.
 
 ### 5 · RETRIEVE — find the relevant passages
 
-The question is embedded with the same model, and ChromaDB returns the `k=4` nearest chunks
-by cosine similarity.
+The question is embedded with the same model, and ChromaDB returns the `k=4` nearest chunks.
+Chroma's default distance is squared L2; gemini-embedding-001 returns unit-length vectors,
+and for unit vectors squared L2 = 2 − 2·cosine, so the ranking is exactly the cosine ranking
+(checked on a stored index: distances match 2 − 2·cos to four decimals).
 
 ### 6 · GENERATE — answer, grounded
 
@@ -409,14 +412,25 @@ no ceiling tested prevented it — but treating empty content as a failure and r
 
 | Config | Question set | Coverage | Recall@4 | Accuracy | Hallucination |
 |---|---|---|---|---|---|
-| `baseline` | easy | 17/48 | 100% | 94.4% | 0% |
-| `baseline@hard` | hard | 10/42 | 100% | 100% | 0% |
+| `baseline` | easy | 17/48 | 100% | 100% (15/15) | 0% (2 probes) |
+| `baseline@hard` | hard | 10/42 | 100% | 100% (10/10) | — (no probes scored) |
 | *BM25 control* | hard | 33/33 | *57.6%* | — | — |
+| *BM25 control, same 10 questions* | hard | 10/10 | *40.0%* | — | — |
 
-**These are partial runs and are labelled as such.** On the 10 hard questions scored so far,
-dense retrieval went 10/10 where keyword search manages 57.6% on the same set — the first real
-evidence the embeddings earn their API call. The full comparison across six configurations is
-pending; it is gated on Google's daily free quota, not on anything unfinished in the code.
+**These are partial runs and are labelled as such.** Numbers come from
+`eval/results/summary.json`. Every question scored so far is from the MySQL handbook — the
+Google daily quota ran out before the other two documents were reached — so these say
+nothing yet about the dense prose or slide-deck documents.
+
+On the 10 hard questions scored so far, dense retrieval found the right page 10 times out of
+10; BM25 on **the same 10 questions** found it 4 times. That is the first like-for-like evidence
+that the embeddings earn their API call, on a small sample from one document. The full
+comparison across six configurations is pending; it is gated on Google's daily free quota,
+not on anything unfinished in the code.
+
+The question sets were generated and filtered automatically (overlap filter, duplicate and
+leak checks in `verify_qa.py`, probe verification). They have **not** been hand-reviewed:
+`reviewed` is `false` on all 90 questions.
 
 Reproduce with:
 
@@ -436,10 +450,13 @@ Stated plainly, because a project that lists none has not been looked at hard en
 |---|---|
 | **Scanned PDFs** | PyPDFLoader extracts no text from image-only PDFs. There is no OCR fallback. |
 | **Tables** | Chunking flattens tabular layout; table-heavy documents retrieve poorly. |
-| **No reranking** | Top-4 by cosine similarity, with no cross-encoder rerank stage. |
+| **No reranking** | Top-4 nearest chunks, with no cross-encoder rerank stage. |
 | **Dense-only retrieval** | A hybrid BM25+dense retriever is implemented and unit-tested in `eval/`, but the live app still uses dense only. |
-| **Occasional blank answer** | ~1 in 20; the app renders it as an empty reply instead of retrying. |
+| **Occasional blank answer** | Seen once in one eval run. The app now retries once and shows a message if it is still empty. |
 | **Free-tier quotas** | Google embeddings have a per-day cap and a per-minute rate limit. Large PDFs can exhaust the day's allowance. |
+| **Follow-up questions** | The model sees the chat history, but retrieval uses only the latest question, so vague follow-ups ("and the second one?") retrieve poorly. Query rewriting would fix this. |
+| **Prompt injection** | Retrieved text is placed inside the system message; a PDF containing instructions could try to override the rules. Untested. |
+| **Shared host keys** | On a deployment with host keys set, visitors who leave the key boxes blank use the host's quota. |
 | **Single-trial evaluation** | Run-to-run variance at `temperature=0.1` is real; small differences between configurations are not meaningful without repeated trials. |
 
 ---
@@ -448,7 +465,7 @@ Stated plainly, because a project that lists none has not been looked at hard en
 
 In the order I would actually do them:
 
-1. **Retry on empty generation.** Smallest change, removes a user-visible failure.
+1. ~~**Retry on empty generation.**~~ Done: `run_qa` retries once on an empty answer.
 2. **Ship hybrid retrieval.** Already written and tested in `eval/`; the comparison run will
    say whether it beats dense-only on this corpus.
 3. **Finish the six-configuration sweep** and put the table here — chunk size, `k`, and

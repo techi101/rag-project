@@ -28,3 +28,7 @@ python-dotenv==1.2.2
 # too old (see the shim at the top of rag_engine.py). Linux-only wheel: the
 # marker keeps `pip install -r requirements.txt` working on Windows/macOS.
 pysqlite3-binary>=0.5.4; sys_platform == "linux"
+
+# ── Evaluation harness only (eval/) ────────────────────────────────────────────
+# BM25 keyword retrieval for the control baseline and the hybrid retriever.
+rank-bm25==0.2.2

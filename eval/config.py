@@ -124,7 +124,7 @@ def question_page_overlap(question: str, page_text_lower: str) -> float:
 
     High overlap means a keyword matcher can find the page without understanding
     anything, so recall measures the QUESTION SET rather than the retriever. This
-    set measured 73% mean overlap, and BM25-only scored 100% recall@4 on it --
+    set measured 73% mean overlap, and BM25-only scored 97.7% recall@4 on it --
     the reason a harder, paraphrased set exists.
     """
     import re

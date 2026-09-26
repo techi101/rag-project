@@ -32,8 +32,9 @@ the right ones — those have opposite fixes.
 
 ## The headline finding: the first test set was too easy
 
-**BM25 — plain keyword matching, no embeddings, no API — scored 100% recall@4 on
-the original question set.** Identical to the dense vector retriever.
+**BM25 — plain keyword matching, no embeddings, no API — scored 97.7% recall@4 on
+the original question set** (100% on two of the three documents, 93% on the third).
+The dense vector retriever scored 100% on the questions it was run on.
 
 That does not mean both are excellent. It means the questions could not tell them
 apart. Questions generated *from* a page inherit that page's vocabulary, so a
@@ -179,9 +180,10 @@ answers that merely mention the phrase are longer and mention it later.
 ### Defect 3 — my own threshold was set by taste
 
 The lexical-overlap check originally passed at 73% because the threshold was 75%,
-a number chosen for no reason. BM25's 100% score is empirical proof that 73% is
-too high. The threshold is now 60%, justified by that evidence in the code
-comment.
+a number chosen for no reason. BM25's 97.7% score is empirical proof that 73% is
+too high. The set-level threshold in `verify_method.py` is now 60%, justified by
+that evidence in the code comment. (Separately, `generate_qa_hard.py` rejects any
+single question above 55%.)
 
 ### Defect 4 — failures were not reproducible
 
@@ -233,26 +235,34 @@ came from unrepresentative probes, one with no retrieved context at all.
 
 **Configuration `baseline`** — exactly what `rag_engine.py` ships:
 `chunk_size=1000`, `chunk_overlap=200`, `k=4`, dense-only similarity.
+Values are from `results/summary.json`, recomputed from the cache.
 
-| Metric | Value | Basis |
+| Metric | Easy set | Hard set |
 |---|---|---|
-| Recall@4 (strict) | 100.0% | 18 answerable questions |
-| Recall@4 (lenient) | 100.0% | same |
-| MRR | 0.810 | correct page usually ranked 1st |
-| Answer accuracy | 94.4% | 17 of 18 correct |
-| Hallucination rate | 0.0% | 2 probes, both correctly refused |
-| Truncation rate | 5.0% | 1 of 20 |
-| Mean latency | 2.08 s | |
+| Coverage | 17 of 48 (15 answerable + 2 probes) | 10 of 42 (10 answerable, 0 probes) |
+| Recall@4 (strict = lenient) | 100.0% | 100.0% |
+| MRR | 0.772 | 0.883 |
+| Answer accuracy | 100.0% (15/15) | 100.0% (10/10) |
+| Hallucination rate | 0.0% (2 probes, both refused) | not measured (no probes scored) |
+| Truncation rate | 0.0% | 0.0% |
+| Mean latency | 1.51 s | 0.68 s |
+| BM25 recall@4 on the same questions | — | 40.0% (4/10) |
+
+All 27 scored questions are from the MySQL handbook. An earlier draft of this
+section quoted a 20-question run (94.4% accuracy, MRR 0.810, one truncated
+answer) whose rows are no longer in the results cache; those numbers are
+superseded by the table above.
 
 ### What the numbers do and don't say
 
 **Do not quote these as a result.** Reasons, in order of severity:
 
-1. **The question set does not discriminate.** BM25 scores 100% on it too. This
+1. **The question set does not discriminate.** BM25 scores 97.7% on it. This
    number describes the questions, not the retriever. Superseded by the hard set.
-2. **Coverage is 42%** — 20 of 48 questions ran before the quota died.
-3. **The sample is skewed to the easiest document** — 17 of 20 are MySQL, a
-   71-chunk corpus with one chunk per page. Zero slide-deck questions ran.
+2. **Coverage is 35% (easy) and 24% (hard)** — 17 of 48 and 10 of 42 questions
+   ran before the quota died.
+3. **The sample is one document** — every scored question is MySQL, a 71-chunk
+   corpus with one chunk per page. No prose or slide-deck questions ran.
 4. **n=2 for hallucination.** A 0% rate on two probes means very little.
 5. **Single trial per question**, and measured run-to-run variance is real.
 
@@ -266,7 +276,7 @@ trusted.* That is a real finding. "100% recall" is not.
 
 | Name | chunk | overlap | k | retrieval | Status |
 |---|---|---|---|---|---|
-| `baseline` | 1000 | 200 | 4 | dense | partial (20/48, easy set) |
+| `baseline` | 1000 | 200 | 4 | dense | partial (17/48 easy, 10/42 hard) |
 | `chunk500` | 500 | 100 | 4 | dense | pending |
 | `chunk2000` | 2000 | 400 | 4 | dense | pending — no-op on 2 of 3 documents |
 | `k8` | 1000 | 200 | 8 | dense | pending |
@@ -307,8 +317,8 @@ Google's embedding free tier enforces a **per-day** quota (`RESOURCE_EXHAUSTED`,
 resets:
 
 - 3 indexes: `objrec` at 500 / 1000 / 2000
-- 28 questions of `baseline` on the easy set
-- the full hard set (33 questions) across configurations
+- 31 questions of `baseline` on the easy set
+- 32 questions of `baseline` on the hard set, and the hard set across other configurations
 - 5 further configurations
 
 Groq's quota was never the constraint — it is still working.
@@ -331,7 +341,7 @@ Groq's quota was never the constraint — it is still working.
 | `verify_tokens.py` | Token ceiling distribution |
 | `build_index.py` | One vector store per chunking scheme |
 | `run_eval.py` | Scoring harness |
-| `qa_set.json` / `qa_set_hard.json` | The question sets |
+| `qa_set.json` / `qa_set_hard.json` | The question sets (automatically checked; `reviewed` is still `false` on all 90 — not hand-reviewed) |
 | `results/`, `cache/` | Raw results and resumable cache |
 
 Nothing here modifies `app.py`, `rag_engine.py`, or `chroma_store/`. The harness

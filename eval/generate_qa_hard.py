@@ -6,7 +6,7 @@ Builds a HARDER question set that actually discriminates between retrievers.
 Why this exists
 ---------------
 The first set (generate_qa.py) has a measured 73% mean word overlap with its own
-source pages, and BM25-only keyword search scored 100% recall@4 on it. A test a
+source pages, and BM25-only keyword search scored 97.7% recall@4 on it. A test a
 1994 keyword algorithm cannot lose is not measuring semantic retrieval -- it is
 measuring vocabulary reuse.
 
