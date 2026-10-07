@@ -5,10 +5,17 @@ app.py, the rest of documind/ and the eval harness (eval/config.py) all read
 these values from here, so the evaluation always measures what the app ships.
 """
 
+# WHAT THIS FILE IS: the control panel of the RAG pipeline. No logic, only values. Change a number here
+# and both the app and the eval use the new value; nothing else needs editing.
+# Real example: set CHUNK_SIZE = 500 -> the next upload of a known PDF sees that index_meta.json says 1000,
+# so ingest.py rebuilds the index instead of reusing the old one, and eval/config.py's "baseline" becomes 500 too.
+# Who reads what: ingest.py (chunking, embedding, store folder), chain.py (top-k, model, max_tokens, prompt),
+#   summary.py (model), eval/config.py (models, chunking, top-k).
+
 # Path = an easy way to build file paths. CHROMA_BASE_DIR / pdf_hash makes "chroma_store/<hash>".
 from pathlib import Path
 
-# ── Constants ─────────────────────────────────────────────────────────────────
+# ── Retrieval settings ────────────────────────────────────────────────────────
 
 # Folder where all vector stores are saved. Each PDF gets its own sub-folder: chroma_store/<pdf hash>/.
 CHROMA_BASE_DIR = Path("./chroma_store")
@@ -33,6 +40,8 @@ TOP_K_RESULTS = 4
 #   " " = between words, "" = anywhere (last resort, may cut a word in half).
 CHUNK_SEPARATORS = ["\n\n", "\n", ". ", " ", ""]
 
+# ── Model settings ────────────────────────────────────────────────────────────
+
 # The embedding model name. "models/" is how Google's API names its models. It returns 3072 numbers per text.
 EMBED_MODEL = "models/gemini-embedding-001"
 # The answer-writing model on Groq: OpenAI's open-weight gpt-oss-20b (20 billion parameters).
@@ -42,6 +51,8 @@ GEN_MODEL = "openai/gpt-oss-20b"
 # max_tokens = 1024 = the most tokens the model may produce (hidden reasoning + visible answer).
 # README: measured cost is about 170 tokens median, 391 worst case, so 1024 leaves plenty of room.
 GEN_MAX_TOKENS = 1024
+
+# ── Index bookkeeping ─────────────────────────────────────────────────────────
 
 # Written next to each vector store. The store's folder is named by the PDF's
 # content hash only, so without this record a change to chunking or to the

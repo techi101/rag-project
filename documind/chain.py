@@ -4,6 +4,16 @@ documind/chain.py — steps 5-6 of the RAG pipeline (retrieve, then generate).
   question -> top 4 chunks from ChromaDB -> prompt -> Groq LLM -> answer + page numbers
 """
 
+# WHAT THIS FILE IS: the writer's desk. Given a ready index (from ingest.py) it finds the 4 best chunks for a
+# question and asks the LLM to answer from them only, with page numbers.
+# Real example: run_qa(parts, "How do you create a database?", []) -> the 4 nearest chunks (one of them is
+#   page 5 with "CREATE DATABASE startersql;") -> answer text citing "[Page 5]" + those 4 chunks for the sidebar.
+# Functions:
+#   page_label(), format_docs() = turn chunks into "[Page N] text" blocks (also imported by eval/)
+#   create_qa_chain()          = build retriever + LLM + prompt once per PDF
+#   run_qa()                   = one question-answer turn (step 5 retrieve, step 6 generate)
+#
+
 # Chroma = LangChain's wrapper around ChromaDB (only used here as a type hint for the vector store).
 from langchain_chroma import Chroma
 # ChatGroq = calls an LLM hosted by Groq (a company with very fast AI chips). Used to write answers.

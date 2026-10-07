@@ -28,8 +28,8 @@ import sys
 # pathlib = easy file paths (Path objects: .name, .read_text(), .write_text()).
 import pathlib
 
-# Add this eval/ folder to the import search path, so "import config" finds eval/config.py
-# even when the script is started from the project root (py -3.12 eval/generate/annotate_pages.py).
+# This script is in a subfolder of eval/, so go ONE folder up (parent.parent) to reach eval/ and put it on
+# the import path; then "import config" finds eval/config.py, from any starting folder.
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 # config = eval/config.py: the list of PDFs (DOCUMENTS), the default question file path and acceptable_pages().
 import config

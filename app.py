@@ -18,7 +18,7 @@ Groq openai/gpt-oss-20b for answers.
 #   session_state   = Streamlit's memory box for one browser tab. It survives the re-runs above.
 #                     Example: st.session_state.messages keeps the whole chat so far.
 #   API key         = a secret password that lets this app use a paid/free online service (Google, Groq).
-#   CSS             = the styling language of web pages (colours, fonts, sizes).
+#   CSS             = the styling language of web pages (colours, fonts, sizes). Ours is in assets/style.css.
 # Overall flow: sidebar (keys + upload) -> "Analyze Document" -> stats + summary + vector store + QA chain
 #               saved in session_state -> chat page -> question -> run_qa() -> answer + citations shown
 #

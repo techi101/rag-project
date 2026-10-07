@@ -22,17 +22,17 @@ Why Groq API?
   - Fast generation.
 """
 
-# WHAT THIS FILE IS: the "brain" (or the librarian + the writer) of DocuMind AI. app.py is only the screen;
-# every real RAG step happens here. RAG = Retrieval-Augmented Generation: first FIND the right pages of
+# WHAT THIS PACKAGE IS: the "brain" (or the librarian + the writer) of DocuMind AI. app.py is only the screen;
+# every real RAG step happens in the files of this folder. RAG = Retrieval-Augmented Generation: first FIND the right pages of
 # the PDF (retrieval), then let a language model WRITE an answer using only those pages (generation).
 # Analogy: an open-book exam. The model is the student, the PDF is the book, and this package is the helper
 # who opens the book to the right 4 pages before the student writes the answer.
 # Real example: you upload the MySQL Handbook (72 pages, one of the eval documents) and ask
-# "What does CREATE DATABASE do?". process_pdf() cuts the pages into chunks, turns each chunk into an
+# "What does CREATE DATABASE do?". process_pdf() (ingest.py) cuts the pages into chunks, turns each chunk into an
 # embedding with Google "models/gemini-embedding-001" and saves them in ChromaDB under chroma_store/.
-# run_qa() then finds the 4 closest chunks (for example the page with "CREATE DATABASE startersql;")
+# run_qa() (chain.py) then finds the 4 closest chunks (for example the page with "CREATE DATABASE startersql;")
 # and asks Groq "openai/gpt-oss-20b" to answer from them, citing "[Page 5]" (PyPDFLoader stores that page as 0-based page 4).
-# Words used below:
+# Words used in every file of this package:
 #   chunk        = a small piece of the document text (here at most 1000 characters).
 #   embedding    = a list of numbers (here 3072 numbers) that captures the MEANING of a text. Texts with
 #                  similar meaning get numbers that are close to each other.
@@ -40,8 +40,9 @@ Why Groq API?
 #                  Here it is ChromaDB, which saves to a folder on disk (no server needed).
 #   LLM          = Large Language Model, the AI that writes the answer (Groq's gpt-oss-20b here).
 #   token        = a small piece of a word that LLMs read and write (roughly 3 to 4 English characters).
-# Overall flow: PDF -> pages (PyPDFLoader) -> chunks (splitter) -> embeddings (Google) -> ChromaDB
-#               -> question -> top 4 chunks -> prompt -> Groq LLM -> answer + page numbers
+# Overall flow: PDF -> pages (PyPDFLoader) -> chunks (splitter) -> embeddings (Google) -> ChromaDB   [ingest.py]
+#               -> question -> top 4 chunks -> prompt -> Groq LLM -> answer + page numbers    [chain.py]
+# All numbers and model names used along the way live in settings.py.
 #
 # A package = a folder of Python files with an __init__.py. This __init__.py runs FIRST, before any file
 # inside documind/ is imported, which is why the two environment fixes below live here: they must

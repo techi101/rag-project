@@ -2,6 +2,12 @@
 documind/summary.py — the 3-bullet summary shown in the sidebar right after upload.
 """
 
+# WHAT THIS FILE IS: a quick first look at the document. It does NOT use the index or retrieval: it simply
+# sends the text of the first 5 pages to the LLM and asks for 3 bullet points.
+# Real example: generate_summary("handbook.pdf", "gsk_...") -> "- Introduces SQL and MySQL...\n- ...\n- ..."
+#   (illustrative text; the real one depends on the PDF and the model).
+#
+
 # PyPDFLoader = reads a PDF with the pypdf library and returns one LangChain "Document" per page.
 from langchain_community.document_loaders import PyPDFLoader
 # ChatGroq = calls an LLM hosted by Groq. ChatPromptTemplate = a prompt with blanks to fill in.

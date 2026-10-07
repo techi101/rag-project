@@ -44,7 +44,8 @@ import sys
 # pathlib: finds the folder this file lives in.
 import pathlib
 
-# Put eval/ first on Python's search path, so "import config" works from any starting folder.
+# This script is in a subfolder of eval/, so go ONE folder up (parent.parent) to reach eval/ and put it on
+# the import path; then "import config" finds eval/config.py, from any starting folder.
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 # config = eval/config.py: the document list, the configurations, and the shared scoring helpers.
 import config

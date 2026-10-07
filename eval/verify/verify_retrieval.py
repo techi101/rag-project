@@ -39,7 +39,8 @@ import pathlib
 # defaultdict: a dictionary that creates a default value (0.0 or an empty list) the first time a key is used.
 from collections import defaultdict
 
-# Put eval/ first on Python's search path, so "import config" finds eval/config.py.
+# This script is in a subfolder of eval/, so go ONE folder up (parent.parent) to reach eval/ and put it on
+# the import path; then "import config" finds eval/config.py, from any starting folder.
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 # config = eval/config.py: folders, document list and the index_key() naming helper.
 import config

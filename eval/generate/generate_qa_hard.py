@@ -53,7 +53,8 @@ import hashlib
 # pathlib = easy file paths.
 import pathlib
 
-# Put the eval/ folder on the import path so "import config" finds eval/config.py.
+# This script is in a subfolder of eval/, so go ONE folder up (parent.parent) to reach eval/ and put it on
+# the import path; then "import config" finds eval/config.py, from any starting folder.
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 # config = eval/config.py: PDF list, model names, folders, the stopword list and question_page_overlap().
 import config

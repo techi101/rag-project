@@ -6,6 +6,16 @@ documind/ingest.py — steps 1-4 of the RAG pipeline (the "ingestion" half).
 Runs once per new PDF; load_existing_vectorstore() reuses the saved result.
 """
 
+# WHAT THIS FILE IS: the librarian's filing work. It turns an uploaded PDF into a searchable index on disk,
+# and decides whether an index saved earlier can be reused.
+# Real example: the MySQL Handbook (72 pages) -> 71 chunks at chunk_size 1000 -> 71 embeddings saved in
+#   chroma_store/<12-character hash>/ plus index_meta.json. Uploading the same file again -> reused, 0 API calls.
+# Functions, in the order app.py uses them:
+#   load_existing_vectorstore() = try the saved index first (returns None if missing, stale or incomplete)
+#   process_pdf()               = otherwise build it: load -> chunk -> embed -> store (steps 1-4)
+#   get_pdf_hash(), _index_settings() = small helpers both of them use
+#
+
 # os = work with folders and files (make the chroma_store/<hash> folder, list it, join paths).
 import os
 # json = turn a Python dict into text and back. Used to write and read index_meta.json.

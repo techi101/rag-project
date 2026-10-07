@@ -7,7 +7,8 @@ This folder is ADDITIVE: it never imports-and-mutates the live app, never
 writes to ../chroma_store/, and nothing here changes how app.py behaves.
 Vector stores built for experiments live in eval/chroma_eval/.
 """
-# WHAT THIS FILE IS: the "settings board" of the evaluation harness. Every other eval/*.py script imports it
+# WHAT THIS FILE IS: the "settings board" of the evaluation harness. Every eval script (eval/*.py, eval/generate/,
+# eval/verify/) imports it
 # (import config) so they all agree on the same folders, model names, test configurations and scoring helpers.
 # An EVALUATION HARNESS = a set of scripts that test the RAG app with known questions and give it a score,
 # like an exam paper plus an answer key plus a marking scheme.
@@ -15,7 +16,7 @@ Vector stores built for experiments live in eval/chroma_eval/.
 # what documind/settings.py ships. JUDGE_MODEL "openai/gpt-oss-120b" grades the answers of GEN_MODEL "openai/gpt-oss-20b".
 # Real example of a helper: question q001 "What SQL command is shown for creating the example database?" has the
 # reference answer "CREATE DATABASE startersql;", which acceptable_pages() finds on page index 4 AND page index 65.
-# Overall flow: folder paths -> load_env() reads API keys -> DOCUMENTS read from documents.json -> model settings
+# Overall flow: folder paths -> load_env() reads API keys -> DOCUMENTS read from data/documents.json -> model settings (imported from documind/settings.py)
 #   -> CONFIGS to compare -> helper functions that measure word overlap and find every page that holds an answer
 #
 # os = talk to the operating system; here it reads and sets environment variables (os.environ) such as GROQ_API_KEY.

@@ -37,7 +37,9 @@ import time
 # pathlib: finds the folder this file lives in.
 import pathlib
 
-# Put the eval/ folder first on Python's search path, so the imports below find eval/config.py and eval/run_eval.py.
+# This script is in a subfolder of eval/, so go ONE folder up (parent.parent) to reach eval/ and put it on
+# the import path; then "import config" finds eval/config.py, from any starting folder.
+# It also finds eval/run_eval.py, which this script reuses.
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 # config = eval/config.py: model names (JUDGE_MODEL), token limits, the path of qa_set.json.
 import config

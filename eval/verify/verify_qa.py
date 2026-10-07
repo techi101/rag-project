@@ -43,7 +43,8 @@ import pathlib
 # 1.0 = identical, 0.0 = nothing in common. Used to find near-duplicate questions.
 from difflib import SequenceMatcher
 
-# Put eval/ first on Python's search path, so "import config" finds eval/config.py.
+# This script is in a subfolder of eval/, so go ONE folder up (parent.parent) to reach eval/ and put it on
+# the import path; then "import config" finds eval/config.py, from any starting folder.
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 # config = eval/config.py: document paths and the path of qa_set.json.
 import config
