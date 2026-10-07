@@ -1,34 +1,58 @@
+# WHAT THIS FILE IS: the shopping list of Python packages this project needs.
+# "pip install -r requirements.txt" downloads and installs every line below.
+# "==" pins an exact version (same version on every machine). ">=" means "this version or newer".
+# Real example: streamlit==1.59.2 installs exactly Streamlit 1.59.2, the version the README badge shows.
+# Overall flow: pip reads this file -> installs each package -> app.py / rag_engine.py / eval/ can import them
 # Pinned to the versions this app is verified to run on. RAG stacks break on
 # minor releases of the langchain/chroma cluster, so an unpinned deploy can
 # fail weeks later with no code change on our side.
 
 # ── Core Framework ─────────────────────────────────────────────────────────────
+# streamlit = turns app.py into the web page (upload box, chat bubbles, sidebar). Run with "streamlit run app.py".
 streamlit==1.59.2
 
 # ── LangChain Ecosystem ────────────────────────────────────────────────────────
+# langchain = the main LangChain package (a toolkit for building LLM apps). Our code imports the
+# langchain-* parts below directly; this pin keeps the base package at a matching version.
 langchain==1.3.14
+# langchain-core = LangChain's basic pieces: ChatPromptTemplate, MessagesPlaceholder, StrOutputParser,
+# HumanMessage / AIMessage, and the "|" pipe (LCEL) used in rag_engine.py.
 langchain-core==1.5.1
+# langchain-community = community-made integrations; we use its PyPDFLoader (PDF -> one Document per page).
 langchain-community==0.4.2
+# langchain-text-splitters = RecursiveCharacterTextSplitter, which cuts pages into 1000-character chunks.
 langchain-text-splitters==1.1.2
+# langchain-chroma = the Chroma class that connects LangChain to the ChromaDB vector store.
 langchain-chroma==1.1.0
+# langchain-groq = ChatGroq, the client that sends prompts to Groq's openai/gpt-oss-20b model.
 langchain-groq==1.1.3
+# langchain-google-genai = GoogleGenerativeAIEmbeddings, the client for Google's gemini-embedding-001.
 langchain-google-genai==4.3.1
 
 # ── Vector Database ────────────────────────────────────────────────────────────
+# chromadb = the vector database itself (stores embeddings in chroma_store/ on disk and finds the nearest ones).
+# Not imported by name in our code; langchain-chroma uses it underneath.
 chromadb==1.5.9
 
 # ── PDF Processing ─────────────────────────────────────────────────────────────
+# pypdf = reads PDF files. Used by PyPDFLoader, and directly in app.py (PdfReader) to count pages and words.
 pypdf==6.14.2
 
 # ── Utilities ──────────────────────────────────────────────────────────────────
+# python-dotenv = loads the API keys from the .env file (load_dotenv() in app.py).
 python-dotenv==1.2.2
 
 # ── Cloud deploy only ──────────────────────────────────────────────────────────
 # Supplies sqlite3 >= 3.35 for ChromaDB on Linux hosts whose system sqlite3 is
 # too old (see the shim at the top of rag_engine.py). Linux-only wheel: the
 # marker keeps `pip install -r requirements.txt` working on Windows/macOS.
+# pysqlite3-binary = a modern sqlite3 (a small file-based database engine that ChromaDB uses inside).
+# The "; sys_platform == 'linux'" part is an environment marker: pip installs it only on Linux.
 pysqlite3-binary>=0.5.4; sys_platform == "linux"
 
 # ── Evaluation harness only (eval/) ────────────────────────────────────────────
 # BM25 keyword retrieval for the control baseline and the hybrid retriever.
+# rank-bm25 = BM25, a classic keyword-search scoring method (no AI, no API). It scores a page higher when
+# it contains the question's rarer words more often. Used only by eval/ (verify_retrieval.py,
+# generate_probes.py, run_eval.py) as the keyword control and for the hybrid retriever, not by the app.
 rank-bm25==0.2.2

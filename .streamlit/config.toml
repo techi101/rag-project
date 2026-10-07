@@ -1,7 +1,22 @@
+# WHAT THIS FILE IS: Streamlit's settings file. Streamlit reads .streamlit/config.toml automatically when
+# "python -m streamlit run app.py" starts. This one only sets the colour theme (the "paint" of the app).
+# TOML = a simple settings-file format: [section] headers, then key = value lines. "#" starts a comment.
+# Real example: primaryColor "#3B82F6" (a blue) is the colour Streamlit uses for highlighted parts,
+# such as the primary "Analyze Document" button style and the focus outline of input boxes.
+# Note: app.py also injects its own CSS, which overrides many of these colours (e.g. its background #0D1117).
+# Overall flow: streamlit run -> reads this file -> builds the dark theme -> app.py's CSS adds detail on top
+# [theme] = the section that holds all colour and font settings.
 [theme]
+# base = start from Streamlit's built-in dark theme (light text on dark background).
 base="dark"
+# primaryColor = accent colour for interactive parts (buttons, sliders, focus outline). Colours are hex codes:
+# "#" + 2 digits each for red, green, blue (00 to FF). #3B82F6 = medium blue.
 primaryColor="#3B82F6"
+# backgroundColor = main page background. #0F172A = very dark navy.
 backgroundColor="#0F172A"
+# secondaryBackgroundColor = background of the sidebar and input widgets. #1E293B = dark slate.
 secondaryBackgroundColor="#1E293B"
+# textColor = default text colour. #F8FAFC = almost white.
 textColor="#F8FAFC"
+# font = the font family for the whole app; "sans serif" = a clean font without small strokes on letters.
 font="sans serif"
