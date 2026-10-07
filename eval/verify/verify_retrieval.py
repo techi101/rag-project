@@ -1,5 +1,5 @@
 """
-eval/verify_retrieval.py
+eval/verify/verify_retrieval.py
 ─────────────────────────────────────────────────────────────────────────────
 Tests the hybrid retriever before spending quota on it.
 
@@ -40,7 +40,7 @@ import pathlib
 from collections import defaultdict
 
 # Put eval/ first on Python's search path, so "import config" finds eval/config.py.
-sys.path.insert(0, str(pathlib.Path(__file__).parent))
+sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 # config = eval/config.py: folders, document list and the index_key() naming helper.
 import config
 
@@ -156,7 +156,7 @@ def test_rrf():
 # question set cannot tell them apart. eval/README.md: 97.7% on the easy set, 57.6% on the hard set.
 # Example row format: "mysql    BM25 recall@4: strict <hits>/<n> (<pct>)  lenient <hits>/<n> (<pct>)".
 def test_bm25_on_corpus(qa_path=None):
-    # No path given -> use the easy set eval/qa_set.json.
+    # No path given -> use the easy set eval/data/qa_set.json.
     qa_path = qa_path or config.QA_SET_PATH
     print("\nPART 2: BM25-only retrieval over the real corpus (no API)")
     print("        question set: %s" % qa_path.name)
@@ -233,11 +233,11 @@ def test_bm25_on_corpus(qa_path=None):
 
 # IN: optional --hard flag -> OUT: runs PART 1 and PART 2, then prints the failures or an all-clear.
 # WHY: one command for both retrieval checks.
-# Example: py -3.12 eval/verify_retrieval.py --hard  -> PART 2 uses eval/qa_set_hard.json.
+# Example: py -3.12 eval/verify/verify_retrieval.py --hard  -> PART 2 uses eval/data/qa_set_hard.json.
 def main():
     # --hard picks the paraphrased question set; otherwise the easy set.
     hard = "--hard" in sys.argv
-    qa_path = (config.EVAL_DIR / "qa_set_hard.json") if hard else config.QA_SET_PATH
+    qa_path = config.QA_SET_HARD_PATH if hard else config.QA_SET_PATH
     print("=" * 78)
     print("RETRIEVAL VERIFICATION%s" % ("  (HARD SET)" if hard else ""))
     print("=" * 78)

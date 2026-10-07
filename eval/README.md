@@ -233,7 +233,7 @@ came from unrepresentative probes, one with no retrieved context at all.
 
 ## Results so far
 
-**Configuration `baseline`** — exactly what `rag_engine.py` ships:
+**Configuration `baseline`** — exactly what `documind/settings.py` ships:
 `chunk_size=1000`, `chunk_overlap=200`, `k=4`, dense-only similarity.
 Values are from `results/summary.json`, recomputed from the cache.
 
@@ -290,18 +290,18 @@ Configs sharing a chunking scheme share an index — 3 indexes per document, not
 ## Running it
 
 ```bash
-py -3.12 eval/generate_qa.py                   # easy set            (cached)
-py -3.12 eval/generate_qa_hard.py              # paraphrased set     (cached)
-py -3.12 eval/generate_probes.py <set>         # verified unanswerables
-py -3.12 eval/verify_qa.py --fix               # QC: dupes, leaks, false probes
-py -3.12 eval/annotate_pages.py [path]         # multi-page ground truth
-py -3.12 eval/verify_method.py                 # assumption checks   (no API)
-py -3.12 eval/verify_retrieval.py [--hard]     # RRF + BM25 baseline (no API)
-py -3.12 eval/verify_judge.py                  # judge validation    (Groq only)
-py -3.12 eval/verify_tokens.py                 # token ceiling test  (Groq only)
-py -3.12 eval/build_index.py [--chunks-only]   # vector stores       (cached)
+py -3.12 eval/generate/generate_qa.py               # easy set            (cached)
+py -3.12 eval/generate/generate_qa_hard.py          # paraphrased set     (cached)
+py -3.12 eval/generate/generate_probes.py <set>     # verified unanswerables
+py -3.12 eval/verify/verify_qa.py --fix             # QC: dupes, leaks, false probes
+py -3.12 eval/generate/annotate_pages.py [path]     # multi-page ground truth
+py -3.12 eval/verify/verify_method.py               # assumption checks   (no API)
+py -3.12 eval/verify/verify_retrieval.py [--hard]   # RRF + BM25 baseline (no API)
+py -3.12 eval/verify/verify_judge.py                # judge validation    (Groq only)
+py -3.12 eval/verify/verify_tokens.py               # token ceiling test  (Groq only)
+py -3.12 eval/build_index.py [--chunks-only]        # vector stores       (cached)
 py -3.12 eval/run_eval.py baseline
-py -3.12 eval/run_eval.py --cached-only        # re-score, zero API calls
+py -3.12 eval/run_eval.py --cached-only             # re-score, zero API calls
 ```
 
 `--chunks-only` splits text without embedding, which is enough for BM25 and runs
@@ -329,21 +329,26 @@ Groq's quota was never the constraint — it is still working.
 
 | File | Purpose |
 |---|---|
-| `config.py` | Corpus, configurations, models, shared metric functions |
-| `generate_qa.py` | Drafts the original question set |
-| `generate_qa_hard.py` | Paraphrased set with objective overlap filtering |
-| `generate_probes.py` | Verified unanswerable questions (hallucination traps) |
-| `verify_qa.py` | QC: false probes, duplicates, leaked ground truth |
-| `annotate_pages.py` | Records every page that answers each question |
-| `verify_method.py` | Adversarial checks on harness assumptions |
-| `verify_retrieval.py` | RRF fusion tests + BM25-only baseline |
-| `verify_judge.py` | Grader accuracy and consistency |
-| `verify_tokens.py` | Token ceiling distribution |
+| `config.py` | Corpus, configurations, shared metric functions. Model names and the baseline chunking are imported from `documind/settings.py`, so the eval always matches the app |
 | `build_index.py` | One vector store per chunking scheme |
 | `run_eval.py` | Scoring harness |
-| `qa_set.json` / `qa_set_hard.json` | The question sets (automatically checked; `reviewed` is still `false` on all 90 — not hand-reviewed) |
+| **`generate/`** | **Building the test sets** |
+| `generate/generate_qa.py` | Drafts the original question set |
+| `generate/generate_qa_hard.py` | Paraphrased set with objective overlap filtering |
+| `generate/generate_probes.py` | Verified unanswerable questions (hallucination traps) |
+| `generate/annotate_pages.py` | Records every page that answers each question |
+| **`verify/`** | **Attacking the harness's own assumptions** |
+| `verify/verify_qa.py` | QC: false probes, duplicates, leaked ground truth |
+| `verify/verify_method.py` | Adversarial checks on harness assumptions |
+| `verify/verify_retrieval.py` | RRF fusion tests + BM25-only baseline |
+| `verify/verify_judge.py` | Grader accuracy and consistency |
+| `verify/verify_tokens.py` | Token ceiling distribution |
+| `verify/verify_indexes.py` | Checks each saved index holds one vector per chunk |
+| **`data/`** | **Inputs** |
+| `data/qa_set.json` / `data/qa_set_hard.json` | The question sets (automatically checked; `reviewed` is still `false` on all 90 — not hand-reviewed) |
+| `data/documents.example.json` | Template for `data/documents.json` (gitignored), which lists your local PDFs |
 | `results/`, `cache/` | Raw results and resumable cache |
 
-Nothing here modifies `app.py`, `rag_engine.py`, or `chroma_store/`. The harness
+Nothing here modifies `app.py`, `documind/`, or `chroma_store/`. The harness
 imports the live `SYSTEM_PROMPT` and `format_docs` read-only, so scores describe
 the real application rather than a lookalike.

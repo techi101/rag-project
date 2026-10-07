@@ -66,7 +66,7 @@ from collections import defaultdict
 sys.path.insert(0, str(pathlib.Path(__file__).parent))
 import config
 
-# Read API keys from .env, then add the project root to the import path so "from rag_engine import ..." works.
+# Read API keys from .env, then add the project root to the import path so "from documind import ..." works.
 config.load_env()
 sys.path.insert(0, str(config.PROJECT_DIR))
 
@@ -80,8 +80,8 @@ from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 
 # Import the LIVE app's prompt and formatter so these numbers describe the real
-# system. Importing is read-only; rag_engine.py is never modified.
-from rag_engine import SYSTEM_PROMPT, format_docs
+# system. Importing is read-only; documind/ is never modified.
+from documind import SYSTEM_PROMPT, format_docs
 
 # RUN_CACHE = eval/cache/runs/: one JSON file per (config, question). Created if missing.
 RUN_CACHE = config.CACHE_DIR / "runs"
@@ -192,7 +192,7 @@ class Retriever:
 # ── Generation ───────────────────────────────────────────────────────────────
 
 # IN: nothing  ->  OUT: the answer model client: gpt-oss-20b, temperature 0.1, max 1024 output tokens.
-# WHY: the same settings as rag_engine.py create_qa_chain(), so the numbers describe the live app.
+# WHY: the same settings as documind/chain.py create_qa_chain(), so the numbers describe the live app.
 # TEMPERATURE = how random the model's word choice is; 0.1 = almost always the most likely word (stable answers).
 # Example: make_llm().invoke(messages) -> an AIMessage with .content "The command is CREATE DATABASE startersql; ..."
 def make_llm():
@@ -556,7 +556,7 @@ def main():
     # summary.json -- they are different tests and are not comparable.
     # Pick the question file: qa_set_hard.json with --hard, else qa_set.json.
     hard = "--hard" in sys.argv
-    qa_path = (config.EVAL_DIR / "qa_set_hard.json") if hard else config.QA_SET_PATH
+    qa_path = config.QA_SET_HARD_PATH if hard else config.QA_SET_PATH
     suffix = "@hard" if hard else ""
 
     # No question file -> stop with a hint.

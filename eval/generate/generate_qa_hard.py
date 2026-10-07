@@ -1,5 +1,5 @@
 """
-eval/generate_qa_hard.py
+eval/generate/generate_qa_hard.py
 ─────────────────────────────────────────────────────────────────────────────
 Builds a HARDER question set that actually discriminates between retrievers.
 
@@ -19,7 +19,7 @@ measured overlap exceeds MAX_OVERLAP is rejected and regenerated, up to
 MAX_ATTEMPTS. The filter is the same function verify_method.py reports with, so
 the generator cannot quietly grade itself on a different scale.
 
-Output: eval/qa_set_hard.json
+Output: eval/data/qa_set_hard.json
 
 Uses Groq only (no embedding API), so it runs with the Google quota exhausted,
 and BM25 scoring in verify_retrieval.py can test the result immediately.
@@ -27,7 +27,7 @@ and BM25 scoring in verify_retrieval.py can test the result immediately.
 # WHAT THIS FILE IS: the "tricky exam setter". generate_qa.py wrote questions that copy the page's own words, so even
 # a dumb keyword search could find the page. This file asks for questions in DIFFERENT words (synonyms, descriptions)
 # and throws away any question that still copies too many words from its page.
-# Real example from eval/qa_set_hard.json: h001 "What is the sample name used for the new data container in the
+# Real example from eval/data/qa_set_hard.json: h001 "What is the sample name used for the new data container in the
 # introductory instructions?" (answer "startersql", gt_page 4, lexical_overlap 0.333). The easy set asked the same
 # fact as "What SQL command is shown for creating the example database?".
 # Jargon:
@@ -38,7 +38,7 @@ and BM25 scoring in verify_retrieval.py can test the result immediately.
 # Overall flow: load each PDF -> pick 12 pages with enough text -> LLM writes a paraphrased Q + answer -> measure
 # overlap -> if above 55%, retry (up to 3 tries) telling the model which words to avoid -> keep the best -> save JSON
 #
-# json = read and write JSON (plain-text lists/dicts); the output file eval/qa_set_hard.json is JSON.
+# json = read and write JSON (plain-text lists/dicts); the output file eval/data/qa_set_hard.json is JSON.
 import json
 # random = pseudo-random numbers; picks which pages get a question.
 import random
@@ -54,7 +54,7 @@ import hashlib
 import pathlib
 
 # Put the eval/ folder on the import path so "import config" finds eval/config.py.
-sys.path.insert(0, str(pathlib.Path(__file__).parent))
+sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 # config = eval/config.py: PDF list, model names, folders, the stopword list and question_page_overlap().
 import config
 
@@ -82,8 +82,8 @@ SEED = 20260916
 HARD_CACHE = config.CACHE_DIR / "qa_hard"
 HARD_CACHE.mkdir(parents=True, exist_ok=True)
 
-# Output file: eval/qa_set_hard.json.
-OUT_PATH = config.EVAL_DIR / "qa_set_hard.json"
+# Output file: eval/data/qa_set_hard.json.
+OUT_PATH = config.QA_SET_HARD_PATH
 
 
 # Prompt template for a paraphrased question. {retry_note} is "" on the first try and RETRY_NOTE on later tries.
@@ -189,7 +189,7 @@ def shared_words(question, page_lower):
     return sorted(w for w in words if w in page_lower)[:10]
 
 
-# IN: nothing (reads the PDFs in eval/documents.json) -> OUT: writes eval/qa_set_hard.json and prints statistics.
+# IN: nothing (reads the PDFs in eval/data/documents.json) -> OUT: writes eval/data/qa_set_hard.json and prints statistics.
 # WHY: builds a question set where keyword search cannot win just by copying words, so dense (embedding) retrieval
 # can show whether it is worth the API call.
 # Example: eval/README.md reports 33 answerable questions in the hard set (42 including 9 probes added later).
@@ -286,7 +286,7 @@ def main():
             print("OK  ov=%.0f%%  %s" % (100 * best["overlap"],
                                          best["parsed"]["question"][:52]))
 
-    # Write all accepted questions to eval/qa_set_hard.json.
+    # Write all accepted questions to eval/data/qa_set_hard.json.
     OUT_PATH.write_text(json.dumps(out, indent=2, ensure_ascii=False), encoding="utf-8")
 
     # Print a summary only if at least one question was accepted (avoids dividing by zero).
@@ -298,7 +298,7 @@ def main():
         print("  mean lexical overlap : %.0f%%   (old set: 73%%)" % (100 * mean))
         print("  accepted / rejected  : %d / %d" % (stats["accepted"], stats["rejected"]))
         print("  LLM attempts         : %d" % stats["attempts"])
-        print("\nNEXT: py -3.12 eval/verify_retrieval.py --hard")
+        print("\nNEXT: py -3.12 eval/verify/verify_retrieval.py --hard")
         print("If BM25 recall drops well below 100%, the set now discriminates.")
 
 

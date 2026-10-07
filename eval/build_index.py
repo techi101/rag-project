@@ -128,7 +128,7 @@ def get_embeddings():
 
 
 # IN: PDF path, chunk size, overlap  ->  OUT: (list of pages, list of chunks), both LangChain Documents.
-# WHY: same splitter settings as rag_engine.py, so the eval measures what the app really does.
+# WHY: same splitter settings as documind/ingest.py, so the eval measures what the app really does.
 # Example: chunk_document(mysql_pdf, 1000, 200) -> 72 pages -> 71 chunks (MySQL row of the chunk table in eval/README.md).
 def chunk_document(path, chunk_size, chunk_overlap):
     # Load the PDF: one Document per page.
@@ -138,7 +138,7 @@ def chunk_document(path, chunk_size, chunk_overlap):
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=chunk_size,
         chunk_overlap=chunk_overlap,
-        separators=["\n\n", "\n", ". ", " ", ""],   # same as rag_engine.py
+        separators=config.CHUNK_SEPARATORS,   # imported from documind/settings.py
     )
     # split_documents splits each page on its own, so a chunk never spans two pages (verified: 0 of 792, eval/README.md).
     return pages, splitter.split_documents(pages)

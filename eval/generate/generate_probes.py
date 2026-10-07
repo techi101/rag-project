@@ -1,5 +1,5 @@
 """
-eval/generate_probes.py
+eval/generate/generate_probes.py
 ─────────────────────────────────────────────────────────────────────────────
 Adds VERIFIED unanswerable questions to a question set.
 
@@ -33,13 +33,13 @@ figure for it. A weak system retrieves confident-looking pages and invents a
 number. Those are requested explicitly.
 
 Usage:
-    py -3.12 eval/generate_probes.py eval/qa_set_hard.json
+    py -3.12 eval/generate/generate_probes.py eval/data/qa_set_hard.json
 """
 # WHAT THIS FILE IS: the "trap maker" of the evaluation. It writes hallucination probes and then double-checks
 # that each trap is real. A probe = a question that sounds like it belongs to the document but whose answer
 # the document does NOT contain. The app should reply "I could not find this information in the uploaded document."
 # If it gives an answer instead, it is hallucinating (inventing facts). Hallucination rate = share of probes answered.
-# Real example from eval/qa_set_hard.json: p034 "What is the default maximum connections limit in a fresh MySQL
+# Real example from eval/data/qa_set_hard.json: p034 "What is the default maximum connections limit in a fresh MySQL
 # installation?" (angle: "a numeric threshold, limit, or default setting"; verified_absent: true).
 # How a trap is checked: BM25 (classic keyword search, no AI, no API) pulls the 8 most relevant passages, and a
 # "judge model" (the larger gpt-oss-120b used as a grader) decides whether those passages actually STATE the answer.
@@ -61,7 +61,7 @@ import hashlib
 import pathlib
 
 # Put eval/ on the import path so "import config" finds eval/config.py.
-sys.path.insert(0, str(pathlib.Path(__file__).parent))
+sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 # config = eval/config.py: PDFs, model names, folders, stopwords, index_key().
 import config
 
@@ -280,9 +280,9 @@ def verify_absent(llm, doc_label, question, bm25, chunks, cache_key):
 
 # IN: optional question-file path on the command line -> OUT: the same file with fresh verified probes appended.
 # WHY: the hallucination rate needs questions the document truly cannot answer.
-# Example: py -3.12 eval/generate_probes.py eval/qa_set_hard.json -> adds up to 9 probes (ids like p034).
+# Example: py -3.12 eval/generate/generate_probes.py eval/data/qa_set_hard.json -> adds up to 9 probes (ids like p034).
 def main():
-    # Non-flag command-line words; the first one is the question file. None given -> eval/qa_set.json.
+    # Non-flag command-line words; the first one is the question file. None given -> eval/data/qa_set.json.
     args = [a for a in sys.argv[1:] if not a.startswith("-")]
     qa_path = pathlib.Path(args[0]) if args else config.QA_SET_PATH
     # Load the question list.

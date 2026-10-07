@@ -12,7 +12,7 @@ Vector stores built for experiments live in eval/chroma_eval/.
 # An EVALUATION HARNESS = a set of scripts that test the RAG app with known questions and give it a score,
 # like an exam paper plus an answer key plus a marking scheme.
 # Real example: CONFIGS["baseline"] = chunk_size 1000, chunk_overlap 200, k 4, dense retrieval, which is exactly
-# what rag_engine.py ships. JUDGE_MODEL "openai/gpt-oss-120b" grades the answers of GEN_MODEL "openai/gpt-oss-20b".
+# what documind/settings.py ships. JUDGE_MODEL "openai/gpt-oss-120b" grades the answers of GEN_MODEL "openai/gpt-oss-20b".
 # Real example of a helper: question q001 "What SQL command is shown for creating the example database?" has the
 # reference answer "CREATE DATABASE startersql;", which acceptable_pages() finds on page index 4 AND page index 65.
 # Overall flow: folder paths -> load_env() reads API keys -> DOCUMENTS read from documents.json -> model settings
@@ -37,8 +37,14 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
 # Folder paths used by every eval script:
 # EVAL_DIR = the eval/ folder (the folder this file is in). __file__ = the path of this file.
 EVAL_DIR = pathlib.Path(__file__).parent
-# PROJECT_DIR = the project root (rag-project/), one level up. The .env file and rag_engine.py live there.
+# PROJECT_DIR = the project root (rag-project/), one level up. The .env file and the documind/ package live there.
 PROJECT_DIR = EVAL_DIR.parent
+# Put the project root on the import path, so every eval script can "import documind" (read-only).
+# sys.path = the list of folders Python searches when it sees an import.
+if str(PROJECT_DIR) not in sys.path:
+    sys.path.insert(0, str(PROJECT_DIR))
+# DATA_DIR = eval/data/, where the question sets and the corpus list live.
+DATA_DIR = EVAL_DIR / "data"
 # CHROMA_EVAL_DIR = eval/chroma_eval/, where the experiment vector stores are saved (never the app's chroma_store/).
 # A VECTOR STORE = a database of embeddings. An EMBEDDING = a list of numbers that captures the meaning of a text.
 CHROMA_EVAL_DIR = EVAL_DIR / "chroma_eval"
@@ -47,7 +53,9 @@ RESULTS_DIR = EVAL_DIR / "results"
 # CACHE_DIR = eval/cache/. A CACHE = saved results from earlier runs, so the same API call is never paid for twice.
 CACHE_DIR = EVAL_DIR / "cache"
 # QA_SET_PATH = the original ("easy") question set: 48 questions per eval/README.md.
-QA_SET_PATH = EVAL_DIR / "qa_set.json"
+QA_SET_PATH = DATA_DIR / "qa_set.json"
+# QA_SET_HARD_PATH = the paraphrased ("hard") question set built by generate/generate_qa_hard.py.
+QA_SET_HARD_PATH = DATA_DIR / "qa_set_hard.json"
 
 
 # IN: nothing (reads the file ../.env)  ->  OUT: nothing; the keys are put into os.environ (the process's settings).
@@ -79,15 +87,15 @@ def load_env() -> None:
 # Three documents with deliberately different shapes, so the ablation reveals
 # where a setting helps and where it hurts, instead of one global average.
 
-# Paths live in eval/documents.json, which is gitignored -- the corpus is local
+# Paths live in eval/data/documents.json, which is gitignored -- the corpus is local
 # study material, and hardcoding absolute paths would both leak the machine's
 # directory layout and make the harness unrunnable by anyone else.
 # Copy documents.example.json to documents.json and point it at your own PDFs.
-DOCUMENTS_PATH = EVAL_DIR / "documents.json"
-DOCUMENTS_EXAMPLE = EVAL_DIR / "documents.example.json"
+DOCUMENTS_PATH = DATA_DIR / "documents.json"
+DOCUMENTS_EXAMPLE = DATA_DIR / "documents.example.json"
 
 
-# IN: nothing (reads eval/documents.json)  ->  OUT: dict of documents {doc_id: {"path", "label", "shape"}}.
+# IN: nothing (reads eval/data/documents.json)  ->  OUT: dict of documents {doc_id: {"path", "label", "shape"}}.
 # WHY: the PDFs are the owner's local study material, so their paths are kept out of git (documents.json is gitignored).
 # Example (from documents.example.json): {"slides": {"path": "/path/to/a/lecture-deck.pdf", "label": "Lecture Slides", ...}}.
 # The owner's local corpus uses doc ids like "mysql" (the MySQL Handbook) and "bi" (see eval/README.md and qa_set.json).
@@ -106,31 +114,33 @@ def _load_documents():
         "Pick documents with DIFFERENT shapes -- a dense prose document, a\n"
         "technical reference with short pages, and a slide deck. The contrast is\n"
         "what makes chunk-size results meaningful rather than an average."
-        % (DOCUMENTS_PATH, DOCUMENTS_EXAMPLE.name, DOCUMENTS_PATH.name))
+        % (DOCUMENTS_PATH, "eval/data/" + DOCUMENTS_EXAMPLE.name, "eval/data/" + DOCUMENTS_PATH.name))
 
 
 # Run the loader once, when any script does "import config". Every script then uses config.DOCUMENTS.
 DOCUMENTS = _load_documents()
 
 # ── Model settings ────────────────────────────────────────────────────────────
-# Model names. EMBED_MODEL turns text into 3072-number vectors (same model the live app uses).
-EMBED_MODEL = "models/gemini-embedding-001"
-# GEN_MODEL writes the answers (same model the live app uses). JUDGE_MODEL is a bigger model that grades them.
+# EMBED_MODEL, GEN_MODEL, GEN_MAX_TOKENS and the baseline chunking are IMPORTED from documind/settings.py,
+# never retyped here, so changing the app's settings automatically changes what the eval measures.
+# EMBED_MODEL turns text into 3072-number vectors. GEN_MODEL writes the answers. JUDGE_MODEL is a bigger model that grades them.
 # A JUDGE MODEL (LLM-as-judge) = an LLM that reads the question, the correct answer and the app's answer and gives a grade.
-GEN_MODEL = "openai/gpt-oss-20b"      # what the live app uses
+from documind.settings import (
+    EMBED_MODEL, GEN_MODEL, GEN_MAX_TOKENS,
+    CHUNK_SIZE, CHUNK_OVERLAP, CHUNK_SEPARATORS, TOP_K_RESULTS,
+)
 JUDGE_MODEL = "openai/gpt-oss-120b"   # larger model grades, to avoid self-scoring bias
 
 # gpt-oss-* are REASONING models: hidden reasoning consumes completion tokens
-# BEFORE any visible text. rag_engine.py uses max_tokens=1024; measured reasoning
+# BEFORE any visible text. The app uses max_tokens=1024 (GEN_MAX_TOKENS); measured reasoning
 # overhead runs 300-900 chars, so tight budgets can truncate or empty an answer.
 # A TOKEN = a small piece of text (roughly 3/4 of an English word) that LLMs read and write.
-# max tokens = the most tokens the model may write in one reply. 1024 = same ceiling as rag_engine.py.
-GEN_MAX_TOKENS = 1024        # matches the live app, so baseline numbers transfer
+# max tokens = the most tokens the model may write in one reply. Same ceiling as the app, so baseline numbers transfer.
 # The judge only writes a tiny JSON grade, so 512 tokens is plenty.
 JUDGE_MAX_TOKENS = 512
 
 # ── Configurations under test ────────────────────────────────────────────────
-# "baseline" is exactly what rag_engine.py ships today (CHUNK_SIZE=1000,
+# "baseline" is exactly what documind/settings.py ships today (CHUNK_SIZE=1000,
 # CHUNK_OVERLAP=200, TOP_K_RESULTS=4, dense-only similarity search).
 
 # The six configurations to compare. Each one changes ONE thing compared to "baseline" (hybrid_k8 changes two):
@@ -139,7 +149,7 @@ JUDGE_MAX_TOKENS = 512
 #   hybrid = mix keyword search (BM25) with meaning search (dense), fused with RRF (both explained in run_eval.py).
 #   "dense" = search by comparing embeddings (meaning), the way the live app searches.
 CONFIGS = {
-    "baseline":      dict(chunk_size=1000, chunk_overlap=200, k=4, retrieval="dense"),
+    "baseline":      dict(chunk_size=CHUNK_SIZE, chunk_overlap=CHUNK_OVERLAP, k=TOP_K_RESULTS, retrieval="dense"),
     "chunk500":      dict(chunk_size=500,  chunk_overlap=100, k=4, retrieval="dense"),
     "chunk2000":     dict(chunk_size=2000, chunk_overlap=400, k=4, retrieval="dense"),
     "k8":            dict(chunk_size=1000, chunk_overlap=200, k=8, retrieval="dense"),

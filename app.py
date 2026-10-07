@@ -6,7 +6,7 @@ Groq openai/gpt-oss-20b for answers.
 
 # WHAT THIS FILE IS: the "face" (the shop counter) of DocuMind AI. It draws the web page the user sees:
 # a sidebar to paste API keys and upload a PDF, a welcome page, and a chat page. It does NO RAG work
-# itself; it hands every real job to rag_engine.py (the "brain") and shows the results.
+# itself; it hands every real job to the documind/ package (the "brain") and shows the results.
 # Real example: you paste your Google key (starts "AIza...") and Groq key (starts "gsk_..."), upload
 # the MySQL Handbook PDF, click "Analyze Document", then click the suggestion
 # "What is the main topic of this document?". The answer appears in a chat bubble with an expander
@@ -29,6 +29,8 @@ import os
 import html
 # tempfile = makes temporary files. The uploaded PDF is only in memory; PyPDFLoader needs a real file path.
 import tempfile
+# Path = an easy way to build file paths; used to find assets/style.css next to this file.
+from pathlib import Path
 # streamlit = the web UI library described above. "as st" = short name, so we write st.button(...).
 import streamlit as st
 # PdfReader (from pypdf, a PDF-reading library) = used here only to count pages and words for the stats box.
@@ -41,11 +43,11 @@ from dotenv import load_dotenv
 # After this line, os.getenv("GROQ_API_KEY") returns the key written in .env (if a .env file exists).
 load_dotenv()
 
-# Our own functions from rag_engine.py (the brain):
+# Our own functions from the documind/ package (the brain):
 #   process_pdf = build a new vector store, load_existing_vectorstore = reuse a saved one,
 #   create_qa_chain = make retriever + LLM + prompt, run_qa = answer one question,
 #   generate_summary = 3-bullet summary, page_label = turn metadata page 0 into "1".
-from rag_engine import (
+from documind import (
     process_pdf,
     load_existing_vectorstore,
     create_qa_chain,
@@ -65,318 +67,17 @@ st.set_page_config(
 )
 
 # ── Global CSS ──────────────────────────────────────────────────────────────────
-# Inject custom CSS (styling) into the page. Everything between the triple quotes is CSS, not Python.
+# Inject custom CSS (styling) into the page. The CSS is read from assets/style.css.
 # It sets the Inter font (loaded from Google Fonts), the dark GitHub-like colours (#0D1117 background),
 # the styles for our own HTML blocks (.hero-title, .feat-card, .step-num, .chat-doc-bar, .summary-box)
 # and smaller sizes for phones: "@media (max-width: 768px)" = only apply on screens 768 pixels wide or
 # less (tablets/phones), and "@media (max-width: 480px)" = only on small phones.
 # "!important" in CSS = override Streamlit's own built-in style.
 # unsafe_allow_html=True = let st.markdown render raw HTML/CSS (Streamlit blocks it by default for safety).
-st.markdown("""
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-
-/* ── Base ─────────────────────────────────────────────────────────────────── */
-html, body, [class*="css"], .stMarkdown p {
-  font-family: 'Inter', sans-serif !important;
-}
-.stApp { background: #0D1117 !important; }
-.block-container { padding-top: 1.5rem !important; max-width: 1100px; }
-
-/* ── Global Text Colors (fixes dark-on-dark on mobile/cloud) ─────────────── */
-.stApp, .stApp * {
-  color: #C9D1D9;
-}
-.stMarkdown p, .stMarkdown li, .stMarkdown span,
-.stMarkdown strong, .stMarkdown b {
-  color: #E6EDF3 !important;
-}
-.stMarkdown h1, .stMarkdown h2, .stMarkdown h3,
-.stMarkdown h4, .stMarkdown h5, .stMarkdown h6 {
-  color: #F0F6FC !important;
-}
-.stMarkdown a { color: #58A6FF !important; }
-.stMarkdown code { color: #F0883E !important; }
-[data-testid="stChatMessage"] p,
-[data-testid="stChatMessage"] li,
-[data-testid="stChatMessage"] span {
-  color: #E6EDF3 !important;
-}
-[data-testid="stExpander"] summary span,
-[data-testid="stExpander"] p {
-  color: #C9D1D9 !important;
-}
-.stCaption, .stCaption p { color: #8B949E !important; }
-.stAlert p { color: #E6EDF3 !important; }
-input, textarea { color: #E6EDF3 !important; }
-[data-testid="stChatInput"] textarea { color: #E6EDF3 !important; }
-label { color: #C9D1D9 !important; }
-
-/* ── Sidebar ──────────────────────────────────────────────────────────────── */
-section[data-testid="stSidebar"] {
-  background: #161B22 !important;
-  border-right: 1px solid #21262D !important;
-}
-section[data-testid="stSidebar"] * {
-  color: #C9D1D9 !important;
-}
-section[data-testid="stSidebar"] .stMarkdown p,
-section[data-testid="stSidebar"] .stMarkdown strong,
-section[data-testid="stSidebar"] label {
-  color: #E6EDF3 !important;
-}
-section[data-testid="stSidebar"] .stCaption, 
-section[data-testid="stSidebar"] .stCaption p {
-  color: #8B949E !important;
-}
-section[data-testid="stSidebar"] a {
-  color: #58A6FF !important;
-}
-
-/* ── Buttons ────────────────────────────────────────────────────────────── */
-.stButton > button {
-  background: linear-gradient(135deg, #1F6FEB, #388BFD) !important;
-  color: #FFFFFF !important;
-  border: none !important;
-  border-radius: 8px !important;
-  font-weight: 600 !important;
-  font-size: 14px !important;
-  padding: 10px 20px !important;
-  transition: opacity 0.2s, transform 0.1s !important;
-}
-.stButton > button:hover {
-  opacity: 0.9 !important;
-  transform: translateY(-1px) !important;
-}
-
-/* ── Chat messages ─────────────────────────────────────────────────────── */
-[data-testid="stChatMessage"] {
-  background: #161B22 !important;
-  border: 1px solid #21262D !important;
-  border-radius: 12px !important;
-  padding: 14px 18px !important;
-  margin-bottom: 10px !important;
-}
-
-/* ── Metric boxes ───────────────────────────────────────────────────────── */
-[data-testid="stMetric"] {
-  background: #161B22;
-  border: 1px solid #21262D;
-  border-radius: 10px;
-  padding: 12px 14px !important;
-}
-[data-testid="stMetricValue"] { color: #58A6FF !important; font-weight: 700 !important; }
-[data-testid="stMetricLabel"] { color: #8B949E !important; }
-
-/* ── Scrollbar ──────────────────────────────────────────────────────────── */
-::-webkit-scrollbar { width: 5px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #30363D; border-radius: 3px; }
-
-/* ── Hero section ──────────────────────────────────────────────────────── */
-.hero-title {
-  font-size: 56px !important;
-  font-weight: 800 !important;
-  letter-spacing: -2.5px;
-  line-height: 1.1;
-  text-align: center;
-  background: linear-gradient(135deg, #58A6FF 0%, #BC8CFF 55%, #F78166 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  margin-bottom: 14px;
-}
-.hero-sub {
-  font-size: 17px;
-  color: #8B949E;
-  text-align: center;
-  line-height: 1.65;
-  max-width: 560px;
-  margin: 0 auto 28px;
-}
-.badge-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: #1C2128;
-  border: 1px solid #30363D;
-  color: #8B949E;
-  padding: 6px 14px;
-  border-radius: 999px;
-  font-size: 12.5px;
-  font-weight: 500;
-  margin: 4px;
-}
-.badge-pill b { color: #58A6FF; }
-
-/* ── Feature cards ──────────────────────────────────────────────────────── */
-.feat-card {
-  background: linear-gradient(145deg, #161B22 0%, #1C2128 100%);
-  border: 1px solid #21262D;
-  border-radius: 16px;
-  padding: 26px 22px;
-  height: 100%;
-  transition: border-color 0.25s ease, box-shadow 0.25s ease, transform 0.2s ease;
-  cursor: default;
-}
-.feat-card:hover {
-  border-color: #388BFD;
-  box-shadow: 0 6px 28px rgba(56,139,253,0.18);
-  transform: translateY(-3px);
-}
-.feat-icon { font-size: 30px; margin-bottom: 12px; display: block; }
-.feat-title { font-size: 15px; font-weight: 700; color: #E6EDF3; margin-bottom: 8px; }
-.feat-desc { font-size: 13.5px; color: #8B949E; line-height: 1.6; }
-
-/* ── Steps ─────────────────────────────────────────────────────────────── */
-.step-wrap {
-  text-align: center;
-  padding: 10px 8px;
-}
-.step-num {
-  width: 38px; height: 38px;
-  background: linear-gradient(135deg, #1F6FEB, #BC8CFF);
-  border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 16px; font-weight: 700; color: #fff;
-  margin: 0 auto 10px;
-  box-shadow: 0 4px 14px rgba(56,139,253,0.35);
-}
-.step-title { font-size: 14px; font-weight: 700; color: #E6EDF3; margin-bottom: 4px; }
-.step-desc { font-size: 12.5px; color: #8B949E; line-height: 1.55; }
-
-/* ── Section divider label ──────────────────────────────────────────────── */
-.section-label {
-  font-size: 11.5px;
-  font-weight: 700;
-  color: #8B949E;
-  text-transform: uppercase;
-  letter-spacing: 1.5px;
-  text-align: center;
-  margin: 32px 0 18px;
-}
-
-/* ── Chat page header ───────────────────────────────────────────────────── */
-.chat-doc-bar {
-  background: linear-gradient(135deg, #161B22, #1C2128);
-  border: 1px solid #21262D;
-  border-left: 4px solid #388BFD;
-  border-radius: 12px;
-  padding: 16px 22px;
-  margin-bottom: 20px;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-.chat-doc-name { font-size: 16px; font-weight: 700; color: #E6EDF3; }
-.chat-doc-meta { font-size: 13px; color: #8B949E; margin-top: 3px; }
-
-/* ── Summary box ─────────────────────────────────────────────────────────── */
-.summary-box {
-  background: #161B22;
-  border: 1px solid #21262D;
-  border-top: 3px solid #58A6FF;
-  border-radius: 12px;
-  padding: 20px 24px;
-  margin-bottom: 22px;
-}
-.summary-label {
-  font-size: 11px; font-weight: 700;
-  color: #58A6FF; text-transform: uppercase; letter-spacing: 1.5px;
-  margin-bottom: 12px;
-}
-.summary-body { font-size: 14px; color: #C9D1D9; line-height: 1.75; }
-
-/* ── Suggestion chips ────────────────────────────────────────────────────── */
-.suggestion-hint {
-  font-size: 12px; font-weight: 600; color: #8B949E;
-  text-transform: uppercase; letter-spacing: 1px;
-  margin-bottom: 8px;
-}
-
-/* ── Mobile Responsive ───────────────────────────────────────────────────── */
-@media (max-width: 768px) {
-  .block-container {
-    padding-top: 1rem !important;
-    padding-left: 0.75rem !important;
-    padding-right: 0.75rem !important;
-    max-width: 100% !important;
-  }
-
-  /* Hero */
-  .hero-title {
-    font-size: 32px !important;
-    letter-spacing: -1.5px;
-    margin-bottom: 10px;
-  }
-  .hero-sub {
-    font-size: 14px;
-    max-width: 100%;
-    margin-bottom: 20px;
-    padding: 0 8px;
-  }
-  .badge-pill {
-    font-size: 11px;
-    padding: 5px 10px;
-    margin: 3px;
-  }
-
-  /* Feature cards */
-  .feat-card {
-    padding: 18px 16px;
-    border-radius: 12px;
-    margin-bottom: 8px;
-  }
-  .feat-icon { font-size: 24px; margin-bottom: 8px; }
-  .feat-title { font-size: 14px; }
-  .feat-desc { font-size: 12.5px; }
-
-  /* Steps */
-  .step-wrap { padding: 8px 4px; }
-  .step-num { width: 32px; height: 32px; font-size: 14px; }
-  .step-title { font-size: 12px; }
-  .step-desc { font-size: 11px; }
-
-  /* Chat page */
-  .chat-doc-bar {
-    padding: 12px 14px;
-    gap: 10px;
-    flex-wrap: wrap;
-  }
-  .chat-doc-name { font-size: 14px; }
-  .chat-doc-meta { font-size: 11px; }
-
-  [data-testid="stChatMessage"] {
-    padding: 10px 12px !important;
-    border-radius: 10px !important;
-  }
-
-  /* Summary */
-  .summary-box {
-    padding: 14px 16px;
-  }
-  .summary-body { font-size: 13px; }
-
-  /* Buttons */
-  .stButton > button {
-    font-size: 12px !important;
-    padding: 8px 14px !important;
-  }
-}
-
-@media (max-width: 480px) {
-  .hero-title {
-    font-size: 26px !important;
-    letter-spacing: -1px;
-  }
-  .hero-sub { font-size: 13px; }
-  .badge-pill { font-size: 10px; padding: 4px 8px; }
-  .feat-card { padding: 14px 12px; }
-  .chat-doc-bar { padding: 10px 12px; }
-  .chat-doc-name { font-size: 13px; }
-}
-</style>
-""", unsafe_allow_html=True)
+# Keeping the CSS in its own file means app.py holds only UI logic.
+# Path(__file__).parent = the folder app.py is in, so the file is found no matter where streamlit is run from.
+_css = (Path(__file__).parent / "assets" / "style.css").read_text(encoding="utf-8")
+st.markdown("<style>" + _css + "</style>", unsafe_allow_html=True)
 
 
 # ── Session State ───────────────────────────────────────────────────────────────

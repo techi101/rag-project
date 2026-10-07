@@ -1,5 +1,5 @@
 """
-eval/verify_qa.py
+eval/verify/verify_qa.py
 ─────────────────────────────────────────────────────────────────────────────
 Quality control on the generated question set. Run this BEFORE trusting any
 score, because a test built on bad questions produces confident nonsense.
@@ -18,10 +18,10 @@ It catches three failure modes found in the first generated batch:
      names a page, is not testing retrieval.
 
 Usage:
-    py -3.12 eval/verify_qa.py           # report only
-    py -3.12 eval/verify_qa.py --fix     # drop duplicates, write back
+    py -3.12 eval/verify/verify_qa.py           # report only
+    py -3.12 eval/verify/verify_qa.py --fix     # drop duplicates, write back
 """
-# WHAT THIS FILE IS: the "proof-reader" of the exam paper. The questions in eval/qa_set.json were written by an
+# WHAT THIS FILE IS: the "proof-reader" of the exam paper. The questions in eval/data/qa_set.json were written by an
 # LLM, so before any score is trusted this script checks them for three kinds of mistakes:
 #   1. a "probe" (a question the document should NOT be able to answer) whose topic is actually in the document,
 #   2. two questions that are almost the same (one fact counted twice),
@@ -44,7 +44,7 @@ import pathlib
 from difflib import SequenceMatcher
 
 # Put eval/ first on Python's search path, so "import config" finds eval/config.py.
-sys.path.insert(0, str(pathlib.Path(__file__).parent))
+sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 # config = eval/config.py: document paths and the path of qa_set.json.
 import config
 
@@ -79,7 +79,7 @@ def full_text(doc_id):
 
 # IN: command-line flag --fix (optional) -> OUT: printed report; with --fix, qa_set.json is rewritten without duplicates.
 # WHY: a test built on bad questions gives confident but wrong scores.
-# Example: py -3.12 eval/verify_qa.py --fix  -> "--fix: dropped 1 duplicate(s), ..." if a duplicate was found.
+# Example: py -3.12 eval/verify/verify_qa.py --fix  -> "--fix: dropped 1 duplicate(s), ..." if a duplicate was found.
 def main():
     # fix = True only if "--fix" was typed on the command line.
     fix = "--fix" in sys.argv

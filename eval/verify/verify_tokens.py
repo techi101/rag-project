@@ -1,7 +1,7 @@
 """
-eval/verify_tokens.py
+eval/verify/verify_tokens.py
 ─────────────────────────────────────────────────────────────────────────────
-Tests the claim: "max_tokens=1024 in rag_engine.py can return a BLANK answer."
+Tests the claim: "max_tokens=1024 in documind/chain.py can return a BLANK answer."
 
 The claim started from a single observation -- one question in one run came back
 empty with finish_reason='length'. One event is an anecdote, not a bug report.
@@ -44,17 +44,17 @@ import sys
 import pathlib
 
 # Put eval/ first on Python's search path, so "import config" finds eval/config.py.
-sys.path.insert(0, str(pathlib.Path(__file__).parent))
+sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 # config = eval/config.py: model names, folders, index_key() and answer_key_terms().
 import config
 
 # Load GOOGLE_API_KEY and GROQ_API_KEY from .env (only the Groq key is really used by this script).
 config.load_env()
-# Also put the project root on the path, so "from rag_engine import ..." finds the live app's rag_engine.py.
+# Also put the project root on the path, so "from documind import ..." finds the live app's package.
 sys.path.insert(0, str(config.PROJECT_DIR))
 
 # Import the app's REAL system prompt and context formatter (read-only), so the test uses exactly what users get.
-from rag_engine import SYSTEM_PROMPT, format_docs
+from documind import SYSTEM_PROMPT, format_docs
 # ChatGroq: LangChain's client for Groq (the cloud service that runs gpt-oss-20b).
 from langchain_groq import ChatGroq
 # ChatPromptTemplate: builds the chat messages from a template. MessagesPlaceholder: a slot for the chat history.
@@ -62,7 +62,7 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 
 # TRIALS = 5: each question is asked 5 times per ceiling, because one try can hide a rare failure.
 TRIALS = 5
-# CEILINGS: the 3 max_tokens values compared. 1024 is what rag_engine.py ships; 2048 and 4096 are 2x and 4x it.
+# CEILINGS: the 3 max_tokens values compared. 1024 is what documind/settings.py ships; 2048 and 4096 are 2x and 4x it.
 CEILINGS = (1024, 2048, 4096)
 # The 4 questions used. q018 is the one that came back empty in the baseline run; the others are its neighbours
 # in the set plus q003. 4 x 5 x 3 = 60 generations in total.
@@ -70,7 +70,7 @@ QUESTION_IDS = ("q018", "q019", "q020", "q003")
 
 
 # IN: one saved chunk dict {"text": ..., "page": ...} -> OUT: a tiny object with .page_content and .metadata.
-# WHY: format_docs() in rag_engine.py expects LangChain Document-like objects; this is the smallest stand-in.
+# WHY: format_docs() in documind/chain.py expects LangChain Document-like objects; this is the smallest stand-in.
 # Example: _D({"text": "CREATE DATABASE startersql;", "page": 4}) -> .page_content "CREATE DATABASE startersql;", .metadata {"page": 4}.
 class _D:
     def __init__(self, chunk):
@@ -205,7 +205,7 @@ def main():
         print("The original empty answer stands as a real but RARE event --")
         print("report it as observed once, not as a reliable failure mode.")
     # Case 3: blanks even at 4096 -> raising the limit is not a full fix; the app must handle empty replies itself
-    # (rag_engine.run_qa now retries once on an empty answer).
+    # (documind.chain.run_qa now retries once on an empty answer).
     else:
         print("MIXED: blank answers occur at both ceilings. Raising the ceiling")
         print("is not a complete fix; handle empty content explicitly.")

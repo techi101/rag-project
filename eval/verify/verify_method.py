@@ -1,5 +1,5 @@
 """
-eval/verify_method.py
+eval/verify/verify_method.py
 ─────────────────────────────────────────────────────────────────────────────
 Adversarial checks on the harness's own assumptions.
 
@@ -35,7 +35,7 @@ CHECK 4  Chunk-count sensitivity per document
 # Overall flow: CHECK 1 chunks never span pages -> CHECK 2 ground-truth pages -> CHECK 3 refusal detector
 # -> CHECK 4 chunk counts per size -> CHECK 5 question/page word overlap -> print every FAIL at the end.
 #
-# json: reads the question set eval/qa_set.json.
+# json: reads the question set eval/data/qa_set.json.
 import json
 # re = regular expressions: small patterns that find text, e.g. our page markers or the words in a question.
 import re
@@ -45,7 +45,7 @@ import sys
 import pathlib
 
 # Put eval/ first on Python's search path, so "import config" works from any starting folder.
-sys.path.insert(0, str(pathlib.Path(__file__).parent))
+sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 # config = eval/config.py: the document list, the configurations, and the shared scoring helpers.
 import config
 
@@ -340,7 +340,7 @@ def check_lexical_overlap():
 
 
 # IN: nothing -> OUT: runs all 5 checks and prints a final list of failures (or an all-clear).
-# WHY: one command (py -3.12 eval/verify_method.py) runs every assumption check.
+# WHY: one command (py -3.12 eval/verify/verify_method.py) runs every assumption check.
 # Example: on the easy set CHECK 5 FAILS (73% overlap is above the 60% limit); eval/README.md lists it as FAILED.
 def main():
     print("=" * 74)

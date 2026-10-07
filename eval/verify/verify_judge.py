@@ -1,5 +1,5 @@
 """
-eval/verify_judge.py
+eval/verify/verify_judge.py
 ─────────────────────────────────────────────────────────────────────────────
 Validates the grader before trusting any accuracy number.
 
@@ -28,7 +28,7 @@ Uses no embedding API, so it runs with the Google quota exhausted.
 # Overall flow: build 10 test cases from qa_set.json -> grade each case 2 times with the judge -> count how many
 # matched the expected grade (accuracy) and how many got the same grade twice (consistency) -> print a report.
 #
-# json: reads the question set file eval/qa_set.json.
+# json: reads the question set file eval/data/qa_set.json.
 import json
 # sys: changes the import path so "import config" and "import run_eval" work.
 import sys
@@ -38,7 +38,7 @@ import time
 import pathlib
 
 # Put the eval/ folder first on Python's search path, so the imports below find eval/config.py and eval/run_eval.py.
-sys.path.insert(0, str(pathlib.Path(__file__).parent))
+sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 # config = eval/config.py: model names (JUDGE_MODEL), token limits, the path of qa_set.json.
 import config
 
@@ -54,7 +54,7 @@ import run_eval
 TRIALS = 2
 
 
-# IN: nothing (reads eval/qa_set.json) -> OUT: a list of 10 case dicts, each with name, expected grade,
+# IN: nothing (reads eval/data/qa_set.json) -> OUT: a list of 10 case dicts, each with name, expected grade,
 #     question, reference answer and the answer to be graded.
 # WHY: a grader can only be checked on answers whose correct grade we already know.
 # Example: {"name": "exact/q001", "expect": "CORRECT", "question": "What SQL command is shown for creating the
@@ -188,6 +188,6 @@ def main():
     print("=" * 78)
 
 
-# Run main() only when this file is started directly (py -3.12 eval/verify_judge.py).
+# Run main() only when this file is started directly (py -3.12 eval/verify/verify_judge.py).
 if __name__ == "__main__":
     main()

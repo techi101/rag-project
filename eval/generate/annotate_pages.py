@@ -1,5 +1,5 @@
 """
-eval/annotate_pages.py
+eval/generate/annotate_pages.py
 ─────────────────────────────────────────────────────────────────────────────
 Writes an `acceptable_pages` list into every answerable question in qa_set.json.
 
@@ -29,8 +29,8 @@ import sys
 import pathlib
 
 # Add this eval/ folder to the import search path, so "import config" finds eval/config.py
-# even when the script is started from the project root (py -3.12 eval/annotate_pages.py).
-sys.path.insert(0, str(pathlib.Path(__file__).parent))
+# even when the script is started from the project root (py -3.12 eval/generate/annotate_pages.py).
+sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 # config = eval/config.py: the list of PDFs (DOCUMENTS), the default question file path and acceptable_pages().
 import config
 
@@ -42,13 +42,13 @@ from langchain_community.document_loaders import PyPDFLoader
 # IN: optional path to a question file on the command line -> OUT: the same file, rewritten with "acceptable_pages"
 # added to every question, plus a printed count of questions that have more than one valid page.
 # WHY: lets run_eval.py report recall two ways: strict (only the original page) and lenient (any acceptable page).
-# Example: py -3.12 eval/annotate_pages.py eval/qa_set_hard.json -> annotates the hard set instead of qa_set.json.
+# Example: py -3.12 eval/generate/annotate_pages.py eval/data/qa_set_hard.json -> annotates the hard set instead of qa_set.json.
 def main():
     # Optional path argument so the hard set can be annotated too:
-    #   py -3.12 eval/annotate_pages.py eval/qa_set_hard.json
+    #   py -3.12 eval/generate/annotate_pages.py eval/data/qa_set_hard.json
     # Keep only command-line words that are not flags (flags start with "-"). The first one, if any, is the file path.
     args = [a for a in sys.argv[1:] if not a.startswith("-")]
-    # No path given -> use the default easy set eval/qa_set.json (config.QA_SET_PATH).
+    # No path given -> use the default easy set eval/data/qa_set.json (config.QA_SET_PATH).
     qa_path = pathlib.Path(args[0]) if args else config.QA_SET_PATH
     print("annotating %s" % qa_path.name)
     # Load the list of question dicts from the JSON file.

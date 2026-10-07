@@ -1,5 +1,5 @@
 """
-eval/generate_qa.py
+eval/generate/generate_qa.py
 ─────────────────────────────────────────────────────────────────────────────
 Drafts the evaluation question set.
 
@@ -17,16 +17,16 @@ We also add deliberately UNANSWERABLE questions: plausible-sounding things the
 document does not contain. A good RAG system must refuse these. A system that
 confidently answers them is hallucinating, and that is worth measuring.
 
-Output: eval/qa_set.json   (review it by hand before trusting any numbers)
+Output: eval/data/qa_set.json   (review it by hand before trusting any numbers)
 """
 # WHAT THIS FILE IS: the "exam paper setter" of the evaluation. It picks pages from each test PDF and asks a big
 # model to write one question per page, and it records WHICH page the question came from (the "ground truth").
-# Real example from eval/qa_set.json: q001 "What SQL command is shown for creating the example database?",
+# Real example from eval/data/qa_set.json: q001 "What SQL command is shown for creating the example database?",
 # reference answer `CREATE DATABASE startersql;`, gt_page 4 (0-based page index of the MySQL handbook).
 # It also writes "unanswerable" questions (also called probes): questions that sound right for the document but
 # whose answer is not in it. A good RAG app must refuse them; answering one means it is hallucinating (making things up).
 # Overall flow: load each PDF -> keep pages with enough text -> randomly pick 15 pages -> LLM writes Q + answer
-# per page -> LLM writes 2 unanswerable questions per document -> save everything to eval/qa_set.json
+# per page -> LLM writes 2 unanswerable questions per document -> save everything to eval/data/qa_set.json
 #
 # json = read and write JSON (a plain-text format for lists and dicts). The question set is saved as JSON.
 import json
@@ -44,7 +44,7 @@ import hashlib
 import pathlib
 
 # Put this eval/ folder on the import path so "import config" finds eval/config.py.
-sys.path.insert(0, str(pathlib.Path(__file__).parent))
+sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 # config = eval/config.py: the PDF list (DOCUMENTS), model names, folder paths and load_env().
 import config
 
@@ -181,7 +181,7 @@ DOCUMENT SAMPLE:
 """
 
 
-# IN: nothing (reads the PDFs listed in eval/documents.json) -> OUT: writes eval/qa_set.json and prints a summary.
+# IN: nothing (reads the PDFs listed in eval/data/documents.json) -> OUT: writes eval/data/qa_set.json and prints a summary.
 # WHY: builds the question set that run_eval.py scores the RAG app on.
 # Example: 3 documents x (15 + 2) = up to 51 questions; eval/README.md says the saved easy set has 48
 # (43 answerable + 5 probes).
@@ -286,7 +286,7 @@ def main():
             })
             print("OK  %s" % parsed["question"][:58])
 
-    # Write the full set to eval/qa_set.json (indent=2 = readable; ensure_ascii=False keeps non-English characters).
+    # Write the full set to eval/data/qa_set.json (indent=2 = readable; ensure_ascii=False keeps non-English characters).
     config.QA_SET_PATH.write_text(
         json.dumps(qa_set, indent=2, ensure_ascii=False), encoding="utf-8")
 
@@ -300,6 +300,6 @@ def main():
     print("any score. A test built on wrong answers is worse than no test.")
 
 
-# Run main() only when the file is started directly (py -3.12 eval/generate_qa.py), not when imported.
+# Run main() only when the file is started directly (py -3.12 eval/generate/generate_qa.py), not when imported.
 if __name__ == "__main__":
     main()

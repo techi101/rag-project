@@ -19,16 +19,12 @@
 ## Table of Contents
 
 - [What this project is](#what-this-project-is)
-- [Why RAG — the problem it solves](#why-rag--the-problem-it-solves)
-- [Architecture](#architecture)
-- [The pipeline, step by step](#the-pipeline-step-by-step)
-- [Tech stack and why each piece was chosen](#tech-stack-and-why-each-piece-was-chosen)
 - [Quick start](#quick-start)
 - [Project structure](#project-structure)
 - [Evaluation — does it actually work?](#evaluation--does-it-actually-work)
-- [What the evaluation found](#what-the-evaluation-found)
 - [Known limitations](#known-limitations)
 - [What I would build next](#what-i-would-build-next)
+- [Further reading](#further-reading)
 
 ---
 
@@ -49,169 +45,6 @@ set, with a dumb keyword-search control to check the clever parts are earning th
 
 That second part is where the engineering is. It is documented in detail in
 **[`eval/README.md`](eval/README.md)**, and summarised [below](#evaluation--does-it-actually-work).
-
----
-
-## Why RAG — the problem it solves
-
-Ask a public LLM *"what were the key findings in my company's Q3 internal audit?"* and it
-will fail, or worse, invent something. It has never seen your private documents, and it has
-no way to tell you that convincingly.
-
-Fine-tuning a model on your documents is expensive, slow, and has to be redone every time a
-document changes. **Retrieval-Augmented Generation** sidesteps both problems: leave the model
-alone, and instead *find* the relevant passages at question time and paste them into the
-prompt. The model becomes a reader rather than a memoriser.
-
-That reframes the engineering problem in a useful way:
-
-> **A RAG system is only as good as its retrieval.** If the right passage never reaches the
-> prompt, no amount of prompt engineering saves the answer.
-
-Which is exactly why this project has an evaluation harness that scores retrieval
-*separately* from answer quality.
-
----
-
-## Architecture
-
-```
-                         ┌──────────────────────────┐
-     PDF upload  ───────▶│  PyPDFLoader             │   one Document per page
-                         └────────────┬─────────────┘
-                                      ▼
-                         ┌──────────────────────────┐
-                         │  RecursiveCharacter      │   1000 chars, 200 overlap
-                         │  TextSplitter            │   split per page
-                         └────────────┬─────────────┘
-                                      ▼
-                         ┌──────────────────────────┐
-                         │  Google                  │   3072-dim vectors
-                         │  gemini-embedding-001    │
-                         └────────────┬─────────────┘
-                                      ▼
-                         ┌──────────────────────────┐
-                         │  ChromaDB                │   persisted per PDF hash
-                         │  chroma_store/<sha256>/  │   → re-upload is free
-                         └────────────┬─────────────┘
-                                      │
-   user question ─────────────────────┤
-                                      ▼
-                         ┌──────────────────────────┐
-                         │  similarity search (k=4) │   nearest by distance
-                         └────────────┬─────────────┘
-                                      ▼
-                         ┌──────────────────────────┐
-                         │  Groq · gpt-oss-20b      │   grounded prompt,
-                         │  temperature 0.1         │   "answer only from context"
-                         └────────────┬─────────────┘
-                                      ▼
-                            answer + page citations
-```
-
----
-
-## The pipeline, step by step
-
-### 1 · LOAD — read the PDF
-
-```python
-loader = PyPDFLoader(pdf_path)
-pages  = loader.load()          # one LangChain Document per page
-```
-
-Page numbers survive in `metadata["page"]`, which is what makes page citations — and later,
-objective retrieval scoring — possible.
-
-### 2 · CHUNK — break it into retrievable pieces
-
-```python
-splitter = RecursiveCharacterTextSplitter(
-    chunk_size=1000, chunk_overlap=200,
-    separators=["\n\n", "\n", ". ", " ", ""],
-)
-chunks = splitter.split_documents(pages)
-```
-
-Whole documents cannot be sent to an LLM on every question — context windows are finite and
-long contexts degrade answer quality. The 200-character overlap stops a fact being severed at
-a chunk boundary. The separator list means it prefers to break at paragraphs, then lines, then
-sentences, and only splits mid-word as a last resort.
-
-> **Measured behaviour worth knowing:** the splitter works *page by page* and never merges
-> across pages — verified, 0 of 792 chunks span two pages. On documents whose pages are
-> already shorter than `chunk_size`, raising the chunk size does nothing at all. See
-> [the evaluation](#what-the-evaluation-found).
-
-### 3 · EMBED — turn text into meaning-vectors
-
-```python
-embedding_model = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
-```
-
-Each chunk becomes a 3072-dimensional vector positioned so that passages *about the same
-thing* land near each other — regardless of shared vocabulary. This is what lets the system
-answer a question phrased completely differently from the source text.
-
-### 4 · STORE — persist to ChromaDB
-
-```python
-pdf_hash    = hashlib.sha256(file_bytes).hexdigest()[:12]
-persist_dir = f"./chroma_store/{pdf_hash}"
-vector_store = Chroma.from_documents(chunks, embedding_model, persist_dir)
-```
-
-Keying the store by a hash of the file's **contents** (not its name) means the same document
-uploaded twice — or renamed — reuses the existing index. Embedding is the expensive step, so
-this is the single biggest cost saving in the app.
-
-### 5 · RETRIEVE — find the relevant passages
-
-The question is embedded with the same model, and ChromaDB returns the `k=4` nearest chunks.
-Chroma's default distance is squared L2; gemini-embedding-001 returns unit-length vectors,
-and for unit vectors squared L2 = 2 − 2·cosine, so the ranking is exactly the cosine ranking
-(checked on a stored index: distances match 2 − 2·cos to four decimals).
-
-### 6 · GENERATE — answer, grounded
-
-```python
-llm = ChatGroq(model="openai/gpt-oss-20b", temperature=0.1, max_tokens=1024)
-```
-
-The retrieved passages and the question go to the model under a system prompt that is strict
-about grounding:
-
-```
-1. ONLY use information explicitly found in the provided context.
-2. If the answer is not in the context, clearly say:
-   "I could not find this information in the uploaded document."
-5. When you use information from a specific part, mention the page number.
-```
-
-Rule 2 is the anti-hallucination rule, and the evaluation measures whether the model actually
-obeys it — see [hallucination probes](#3-hallucination-is-measured-not-hoped-for).
-
----
-
-## Tech stack and why each piece was chosen
-
-| Layer | Choice | Why this one |
-|---|---|---|
-| **UI** | Streamlit | Chat UI in pure Python; deploys free on Streamlit Cloud |
-| **Orchestration** | LangChain (LCEL) | Composable chains; loaders and splitters that already handle PDF edge cases |
-| **PDF parsing** | PyPDFLoader (pypdf) | Preserves per-page metadata, which page citations depend on |
-| **Embeddings** | Google `gemini-embedding-001` | 3072-dim, strong quality, generous free tier |
-| **Vector DB** | ChromaDB | Runs locally with no server; persists to disk; no hosting cost |
-| **LLM** | Groq `openai/gpt-oss-20b` | Free tier, and Groq's LPU hardware makes generation near-instant |
-| **Grading (eval only)** | Groq `openai/gpt-oss-120b` | A *larger* model grades the smaller one — a model grading its own output inflates scores |
-
-### One thing to know about the generation model
-
-`gpt-oss-20b` is a **reasoning model**: it spends completion tokens on hidden reasoning
-*before* emitting any visible text. Measured cost is ~170 tokens median, 391 worst case,
-against the configured 1024 ceiling. That is comfortable headroom — but it does mean an
-answer can occasionally come back empty, which the evaluation quantifies rather than guesses
-at.
 
 ---
 
@@ -260,32 +93,41 @@ Opens at `http://localhost:8501`.
 ```
 rag-project/
 │
-├── app.py                  ← THE FACE: entire Streamlit UI — upload, chat, sidebar,
-│                              session state, responsive CSS
+├── app.py                  ← THE FACE: the Streamlit UI — upload, chat, sidebar, session state
+│                              (Streamlit Cloud runs this file, so it stays at the top level)
 │
-├── rag_engine.py           ← THE BRAIN: all RAG logic
-│     ├── get_pdf_hash()            content hash → per-PDF cache directory
-│     ├── process_pdf()             load → chunk → embed → store
-│     ├── load_existing_vectorstore()   skip re-embedding a known PDF
-│     ├── create_qa_chain()         retriever + LLM + grounded prompt
-│     ├── run_qa()                  one Q&A turn, with chat history
-│     └── generate_summary()        document summary on upload
+├── documind/               ← THE BRAIN: all RAG logic, as a Python package
+│     ├── settings.py               every setting in ONE place: models, chunk size, top-k, system prompt
+│     ├── ingest.py                 load → chunk → embed → store; reuse a saved index (get_pdf_hash,
+│     │                             process_pdf, load_existing_vectorstore)
+│     ├── chain.py                  retriever + LLM + grounded prompt; one Q&A turn (create_qa_chain,
+│     │                             run_qa, format_docs, page_label)
+│     └── summary.py                3-bullet document summary on upload (generate_summary)
 │
+├── assets/
+│     └── style.css         ← the app's CSS (dark theme, mobile sizes)
+│
+├── docs/                   ← the long-form write-ups
+│     ├── how-it-works.md           why RAG, architecture, the 6 pipeline steps, tech choices
+│     └── evaluation-findings.md    what the evaluation found, defect by defect
+│
+├── eval/                   ← THE PROOF: evaluation harness (see eval/README.md)
+│     ├── config.py                 corpus, configurations, shared metrics (models come from documind/settings.py)
+│     ├── build_index.py            vector stores per chunking scheme
+│     ├── run_eval.py               the scorer
+│     ├── generate/                 build the test sets
+│     │     ├── generate_qa.py            question set from sampled pages
+│     │     ├── generate_qa_hard.py       paraphrased set, overlap-filtered
+│     │     ├── generate_probes.py        verified unanswerable questions
+│     │     └── annotate_pages.py         multi-page ground truth
+│     ├── verify/                   six scripts that attack the harness's own assumptions
+│     ├── data/                     qa_set.json, qa_set_hard.json, documents.example.json
+│     └── results/                  summary.json
+│
+├── .streamlit/config.toml  ← Streamlit theme
 ├── requirements.txt        ← dependencies
-├── .env                    ← your API keys (gitignored)
-├── .gitignore
-├── chroma_store/           ← auto-created vector stores, one per PDF hash
-│
-└── eval/                   ← THE PROOF: evaluation harness (see eval/README.md)
-      ├── config.py                 corpus, configurations, shared metrics
-      ├── generate_qa.py            question set from sampled pages
-      ├── generate_qa_hard.py       paraphrased set, overlap-filtered
-      ├── generate_probes.py        verified unanswerable questions
-      ├── build_index.py            vector stores per chunking scheme
-      ├── run_eval.py               the scorer
-      ├── annotate_pages.py         multi-page ground truth
-      ├── verify_*.py               six scripts that attack the harness's own assumptions
-      └── qa_set*.json              the question sets
+├── .env.example            ← copy to .env and add your API keys (.env is gitignored)
+└── chroma_store/           ← auto-created vector stores, one per PDF hash (gitignored)
 ```
 
 ---
@@ -310,103 +152,13 @@ Separating recall from accuracy is the whole point. If accuracy is poor, you nee
 whether the retriever handed over the wrong pages or the model fumbled the right ones —
 those have **opposite fixes**.
 
-### How the test set is built
+### The headline finding
 
-Each question is generated from one specific page, and **that page number is recorded as
-ground truth**. If no retrieved chunk comes from it, retrieval failed — regardless of what
-the model then wrote. That makes retrieval scoring objective rather than a matter of opinion.
-
-The corpus is three documents with deliberately different shapes, so results reveal *where* a
-setting helps instead of averaging into mush:
-
-| Document | Pages | Characters | Shape |
-|---|---|---|---|
-| MySQL Handbook | 72 | 40k | Technical reference — code, tables, short pages |
-| BI Exam Companion | 89 | 202k | Dense continuous prose |
-| Object Recognition Slides | 60 | 20k | Lecture slides — sparse, fragmented |
-
----
-
-## What the evaluation found
-
-### 1 · The first test set measured nothing
-
-**BM25 — plain keyword matching, no embeddings, no AI, invented in 1994 — scored 97.7%
-recall@4 on the original question set.** Identical to the dense vector retriever.
-
-That is not two excellent systems. That is a test that cannot tell them apart. Questions
-generated *from* a page inherit that page's vocabulary, so a string matcher finds it without
-understanding anything. Measured cause: **73% mean word overlap** between each question and
-its own source page.
-
-**The fix:** a second question set that paraphrases instead of quoting — synonyms, indirection,
-description instead of naming — with an objective filter that rejects any question measuring
-above 55% overlap and regenerates it.
-
-| | Original set | Hard set |
-|---|---|---|
-| Questions | 48 | 42 |
-| Mean lexical overlap | 73% | **21%** |
-| **BM25-only recall@4** | **97.7%** | **57.6%** |
-
-> Same fact, both sets:
-> - *Easy:* "What does Mask R-CNN add to Faster R-CNN?"
-> - *Hard:* "When extending the earlier object-detecting system that predicts a category and a
->   surrounding rectangle, what additional output is produced?"
-
-Running a dumb baseline as a control is the single most useful thing in this project. Without
-it, the headline would have been a meaningless "100% recall."
-
-### 2 · Chunk size does nothing on sparse documents
-
-| Document | chunks @500 | @1000 | @2000 |
-|---|---|---|---|
-| MySQL | 115 | **71** | **71** |
-| BI | 522 | 275 | 152 |
-| Object Recognition | 72 | **60** | **60** |
-
-The splitter never merges across pages, and two of these documents have pages shorter than
-1000 characters — so every page is already one chunk and raising the limit changes nothing.
-A corpus of only sparse documents would have "proved" chunk size is irrelevant. It isn't; it
-only matters when pages are dense enough to split.
-
-### 3 · Hallucination is measured, not hoped for
-
-Nine questions the documents genuinely cannot answer. Each is verified the way the real system
-would answer it — BM25 retrieves the 8 most relevant passages, and a large model checks whether
-they actually *state* the fact. Only probes that survive are kept.
-
-The strongest traps have their subject present but the specific fact absent:
-
-> *"What IoU threshold does the original R-CNN use for non-maximum suppression?"*
-> The slide deck discusses IoU thresholds, but never mentions non-maximum suppression. A weak
-> system retrieves the IoU page and invents a number.
-
-### 4 · Four defects were found in the harness itself
-
-An evaluation you haven't attacked is just a second thing that might be wrong.
-
-| Defect | What it would have caused |
-|---|---|
-| Recall credited only one page | Punished the retriever for finding a *different* page that also answers the question (18.6% of questions have several) |
-| Refusal detector matched `"not in the"` | Graded genuine answers as refusals, understating hallucination |
-| A failed embedding batch left a partial index | `bi_cs1000_co200` held **200 of 275 vectors** while looking complete — recall measured against a document missing 27% of its content |
-| Rate-limited questions were silently dropped | A run reported results over 20 of 48 questions without saying so |
-
-The third is the one worth remembering. The "is this index built?" check asked *does the
-directory exist?* — which a half-written store passes forever. It now counts vectors and
-compares against chunks, and a batch that exhausts its retries raises instead of continuing.
-
-### 5 · A claim made, tested, and retracted
-
-An early finding claimed `max_tokens=1024` was too low and blank answers were "a coin flip."
-Sixty controlled generations say otherwise: **0 empty answers in 20 trials at 1024**, median
-cost 170 tokens against the ceiling. The claim was wrong and is marked as such in
-`eval/README.md` rather than quietly deleted.
-
-What survives is narrower and true: one question in one run *did* return an empty string with
-`finish_reason="length"`. Roughly 1 in 20. The defensible fix is not raising `max_tokens` —
-no ceiling tested prevented it — but treating empty content as a failure and retrying once.
+**BM25 — plain keyword matching, no embeddings — scored 97.7% recall@4 on the first question
+set**, the same as the dense retriever: the questions copied their page's wording, so they could
+not tell the two apart. A paraphrased question set dropped BM25 to **57.6%**. The full story, and
+the four defects found in the harness itself, is in
+**[`docs/evaluation-findings.md`](docs/evaluation-findings.md)**.
 
 ### Current results
 
@@ -435,9 +187,9 @@ leak checks in `verify_qa.py`, probe verification). They have **not** been hand-
 Reproduce with:
 
 ```bash
-py -3.12 eval/verify_method.py        # assumption checks     (no API)
-py -3.12 eval/verify_retrieval.py --hard   # BM25 control     (no API)
-py -3.12 eval/run_eval.py --hard      # full scoring run
+py -3.12 eval/verify/verify_method.py             # assumption checks   (no API)
+py -3.12 eval/verify/verify_retrieval.py --hard   # BM25 control        (no API)
+py -3.12 eval/run_eval.py --hard                  # full scoring run
 ```
 
 ---
@@ -475,6 +227,16 @@ In the order I would actually do them:
 5. **OCR fallback** for scanned PDFs, which is currently a silent failure.
 6. **Repeated trials per question** so differences between configurations can be
    distinguished from noise.
+
+---
+
+## Further reading
+
+| Document | What it covers |
+|---|---|
+| [`docs/how-it-works.md`](docs/how-it-works.md) | Why RAG, the architecture diagram, each pipeline step with code, why each tool was chosen |
+| [`docs/evaluation-findings.md`](docs/evaluation-findings.md) | How the test set is built and everything the evaluation found |
+| [`eval/README.md`](eval/README.md) | The evaluation harness in full: how to run it, every script, every number |
 
 ---
 

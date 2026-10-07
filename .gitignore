@@ -45,7 +45,7 @@ eval/__pycache__/
 # Raw per-question results embed verbatim text from the source PDFs
 # (textbooks//lecture notes) - keep them local, publish only the summary.
 eval/results/raw_*.json
-eval/qa_set_hard.json.bak
+eval/data/qa_set_hard.json.bak
 
 # Evaluation corpus paths are local study material, not for publication
-eval/documents.json
+eval/data/documents.json

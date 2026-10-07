@@ -1,5 +1,5 @@
 """
-eval/verify_indexes.py
+eval/verify/verify_indexes.py
 ─────────────────────────────────────────────────────────────────────────────
 Checks that every vector store holds exactly as many vectors as its chunk file
 has chunks.
@@ -31,8 +31,8 @@ import sys
 import pathlib
 
 # Add the eval/ folder to Python's search path, so "import config" finds eval/config.py
-# even when the script is started from the project root (py -3.12 eval/verify_indexes.py).
-sys.path.insert(0, str(pathlib.Path(__file__).parent))
+# even when the script is started from the project root (py -3.12 eval/verify/verify_indexes.py).
+sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 # config = eval/config.py: shared settings (documents, configurations, folders, model names).
 import config
 
