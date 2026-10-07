@@ -51,8 +51,7 @@ import config
 
 # Load GOOGLE_API_KEY and GROQ_API_KEY from .env (only the Groq key is really used by this script).
 config.load_env()
-# Also put the project root on the path, so "from documind import ..." finds the live app's package.
-sys.path.insert(0, str(config.PROJECT_DIR))
+# (config.py already put the project root on the import path, so "from documind import ..." works.)
 
 # Import the app's REAL system prompt and context formatter (read-only), so the test uses exactly what users get.
 from documind import SYSTEM_PROMPT, format_docs
@@ -149,8 +148,8 @@ def main():
 
         # Loop over the three ceilings.
         for ceiling in CEILINGS:
-            # A new model client with this ceiling. temperature=0.1 = same setting as the live app (a little randomness).
-            llm = ChatGroq(model=config.GEN_MODEL, temperature=0.1, max_tokens=ceiling)
+            # A new model client with this ceiling. config.GEN_TEMPERATURE (0.1) = same setting as the live app.
+            llm = ChatGroq(model=config.GEN_MODEL, temperature=config.GEN_TEMPERATURE, max_tokens=ceiling)
             # Per-ceiling counters for this question.
             toks, empties, lengths = [], 0, 0
             # Ask the same thing TRIALS (5) times.

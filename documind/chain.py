@@ -27,7 +27,7 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.messages import HumanMessage, AIMessage
 
 # All the numbers, names and the system prompt come from settings.py.
-from documind.settings import TOP_K_RESULTS, GEN_MODEL, GEN_MAX_TOKENS, SYSTEM_PROMPT
+from documind.settings import TOP_K_RESULTS, GEN_MODEL, GEN_TEMPERATURE, GEN_MAX_TOKENS, SYSTEM_PROMPT
 
 
 # IN: a chunk's metadata dict  ->  OUT: the page number as a human reads it ("1", "2", ...) or "?".
@@ -94,13 +94,12 @@ def create_qa_chain(vector_store: Chroma, groq_api_key: str) -> dict:
     )
 
     # Groq gpt-oss-20b: free tier, fast
-    # temperature = how random the model's word choices are (0 = always the most likely word, higher =
-    # more creative). 0.1 = almost fixed, good for factual answers from a document.
+    # temperature = GEN_TEMPERATURE (0.1) from settings.py: almost fixed, good for factual answers.
     # max_tokens = GEN_MAX_TOKENS (1024) from settings.py: hidden reasoning + visible answer together.
     llm = ChatGroq(
         model=GEN_MODEL,
         groq_api_key=groq_api_key,
-        temperature=0.1,
+        temperature=GEN_TEMPERATURE,
         max_tokens=GEN_MAX_TOKENS,
     )
 

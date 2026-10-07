@@ -16,7 +16,7 @@ from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 
-from documind.settings import GEN_MODEL
+from documind.settings import GEN_MODEL, SUMMARY_PAGES, SUMMARY_TEMPERATURE
 
 
 # IN: path of the PDF + Groq API key  ->  OUT: a short 3-bullet summary text (or an error line).
@@ -33,17 +33,17 @@ def generate_summary(pdf_path: str, groq_api_key: str) -> str:
         loader = PyPDFLoader(pdf_path)
         pages = loader.load()
         
-        # Only use the first 5 pages to save tokens and speed up summarizing
+        # Only use the first SUMMARY_PAGES (5) pages to save tokens and speed up summarizing.
         # pages[:5] = the first 5 pages only (fewer pages = fewer tokens = faster and cheaper).
         # Their texts are joined with a newline into one string.
-        text_to_summarize = "\n".join([page.page_content for page in pages[:5]])
+        text_to_summarize = "\n".join([page.page_content for page in pages[:SUMMARY_PAGES]])
         
-        # A separate LLM client for the summary. temperature 0.3 = a bit more free wording than the Q&A (0.1),
+        # A separate LLM client for the summary. SUMMARY_TEMPERATURE 0.3 = a bit more free wording than the Q&A (0.1),
         # fine for a summary. No max_tokens set here, so Groq's default limit applies.
         llm = ChatGroq(
             model=GEN_MODEL,
             groq_api_key=groq_api_key,
-            temperature=0.3,
+            temperature=SUMMARY_TEMPERATURE,
         )
         
         # A 2-message prompt: system instructions (3 bullets, no intro) + the document text in the {text} blank.

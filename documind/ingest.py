@@ -197,7 +197,7 @@ def load_existing_vectorstore(pdf_path: str, google_api_key: str):
 
     # Settings match: open the saved store. The embedding model is still needed, because every new
     # QUESTION must be embedded the same way before ChromaDB can compare it with the saved chunks.
-    print(f"[RAG Engine] Found existing vector store. Loading from disk...")
+    print("[RAG Engine] Found existing vector store. Loading from disk...")
     embedding_model = GoogleGenerativeAIEmbeddings(
         model=EMBED_MODEL,
         google_api_key=google_api_key

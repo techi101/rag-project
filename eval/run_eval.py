@@ -66,9 +66,9 @@ from collections import defaultdict
 sys.path.insert(0, str(pathlib.Path(__file__).parent))
 import config
 
-# Read API keys from .env, then add the project root to the import path so "from documind import ..." works.
+# Read API keys from .env. (config.py already put the project root on the import path, so
+# "from documind import ..." works.)
 config.load_env()
-sys.path.insert(0, str(config.PROJECT_DIR))
 
 # Chroma = open the vector stores that build_index.py saved in eval/chroma_eval/.
 from langchain_chroma import Chroma
@@ -196,7 +196,7 @@ class Retriever:
 # TEMPERATURE = how random the model's word choice is; 0.1 = almost always the most likely word (stable answers).
 # Example: make_llm().invoke(messages) -> an AIMessage with .content "The command is CREATE DATABASE startersql; ..."
 def make_llm():
-    return ChatGroq(model=config.GEN_MODEL, temperature=0.1,
+    return ChatGroq(model=config.GEN_MODEL, temperature=config.GEN_TEMPERATURE,
                     max_tokens=config.GEN_MAX_TOKENS)
 
 

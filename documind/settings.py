@@ -9,8 +9,9 @@ these values from here, so the evaluation always measures what the app ships.
 # and both the app and the eval use the new value; nothing else needs editing.
 # Real example: set CHUNK_SIZE = 500 -> the next upload of a known PDF sees that index_meta.json says 1000,
 # so ingest.py rebuilds the index instead of reusing the old one, and eval/config.py's "baseline" becomes 500 too.
-# Who reads what: ingest.py (chunking, embedding, store folder), chain.py (top-k, model, max_tokens, prompt),
-#   summary.py (model), eval/config.py (models, chunking, top-k).
+# Who reads what: ingest.py (chunking, embedding, store folder), chain.py (top-k, model, temperature,
+#   max_tokens, prompt), summary.py (model, summary pages/temperature), eval/config.py (models, temperature,
+#   max_tokens, chunking, top-k).
 
 # Path = an easy way to build file paths. CHROMA_BASE_DIR / pdf_hash makes "chroma_store/<hash>".
 from pathlib import Path
@@ -48,9 +49,18 @@ EMBED_MODEL = "models/gemini-embedding-001"
 # It is a "reasoning" model: it thinks in hidden tokens before writing the visible answer.
 GEN_MODEL = "openai/gpt-oss-20b"
 
+# temperature = how random the model's word choices are (0 = always the most likely word, higher =
+# more creative). 0.1 = almost fixed, good for factual answers from a document.
+GEN_TEMPERATURE = 0.1
+
 # max_tokens = 1024 = the most tokens the model may produce (hidden reasoning + visible answer).
 # README: measured cost is about 170 tokens median, 391 worst case, so 1024 leaves plenty of room.
 GEN_MAX_TOKENS = 1024
+
+# The upload summary (summary.py): read only the first SUMMARY_PAGES pages (fewer pages = fewer tokens =
+# faster and cheaper), with a bit more free wording than the Q&A (0.3 vs 0.1).
+SUMMARY_PAGES = 5
+SUMMARY_TEMPERATURE = 0.3
 
 # ── Index bookkeeping ─────────────────────────────────────────────────────────
 

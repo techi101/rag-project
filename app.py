@@ -55,6 +55,8 @@ from documind import (
     generate_summary,
     page_label,
 )
+# GEN_MODEL = the answer model's name, shown on the welcome page so the page never names the wrong model.
+from documind.settings import GEN_MODEL
 
 # ── Page Config ─────────────────────────────────────────────────────────────────
 # set_page_config must be the first Streamlit command. It sets the browser tab title and icon (a brain
@@ -281,16 +283,18 @@ if not st.session_state.qa_chain:
     # so the content sits centred with empty space on both sides.
     _, hero_col, _ = st.columns([1, 8, 1])
     with hero_col:
-        # Big title, subtitle and 4 small "badge" pills, written as HTML with the CSS classes defined above.
-        st.markdown("""
+        # Big title, subtitle and 4 small "badge" pills, written as HTML with the CSS classes from assets/style.css.
+        # f-string: {model_name} is filled with the model's short name, e.g. "gpt-oss-20b" from "openai/gpt-oss-20b".
+        model_name = GEN_MODEL.split("/")[-1]
+        st.markdown(f"""
         <div style="text-align:center; padding: 48px 0 32px;">
           <div style="font-size:72px; margin-bottom:16px; filter:drop-shadow(0 0 28px rgba(88,166,255,0.55));
                animation:none;">🧠</div>
           <div class="hero-title">DocuMind AI</div>
           <p class="hero-sub">Upload any PDF and have an intelligent conversation with it.<br>
-          Powered by semantic vector search and Groq-hosted gpt-oss-20b.</p>
+          Powered by semantic vector search and Groq-hosted {model_name}.</p>
           <div style="text-align:center; margin-bottom:40px;">
-            <span class="badge-pill"><b>⚡</b> Groq gpt-oss-20b</span>
+            <span class="badge-pill"><b>⚡</b> Groq {model_name}</span>
             <span class="badge-pill"><b>🗄️</b> ChromaDB</span>
             <span class="badge-pill"><b>🔗</b> LangChain</span>
             <span class="badge-pill"><b>🆓</b> Free-tier APIs</span>

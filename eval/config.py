@@ -122,12 +122,13 @@ def _load_documents():
 DOCUMENTS = _load_documents()
 
 # ── Model settings ────────────────────────────────────────────────────────────
-# EMBED_MODEL, GEN_MODEL, GEN_MAX_TOKENS and the baseline chunking are IMPORTED from documind/settings.py,
-# never retyped here, so changing the app's settings automatically changes what the eval measures.
+# EMBED_MODEL, GEN_MODEL, GEN_TEMPERATURE, GEN_MAX_TOKENS and the baseline chunking are IMPORTED from
+# documind/settings.py, never retyped here, so changing the app's settings automatically changes what the
+# eval measures. Scripts read them as config.GEN_MODEL etc. (that is why they are imported here).
 # EMBED_MODEL turns text into 3072-number vectors. GEN_MODEL writes the answers. JUDGE_MODEL is a bigger model that grades them.
 # A JUDGE MODEL (LLM-as-judge) = an LLM that reads the question, the correct answer and the app's answer and gives a grade.
 from documind.settings import (
-    EMBED_MODEL, GEN_MODEL, GEN_MAX_TOKENS,
+    EMBED_MODEL, GEN_MODEL, GEN_TEMPERATURE, GEN_MAX_TOKENS,
     CHUNK_SIZE, CHUNK_OVERLAP, CHUNK_SEPARATORS, TOP_K_RESULTS,
 )
 JUDGE_MODEL = "openai/gpt-oss-120b"   # larger model grades, to avoid self-scoring bias
