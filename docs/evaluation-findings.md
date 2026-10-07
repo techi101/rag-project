@@ -1,7 +1,7 @@
 # What the evaluation found
 
 > Back to the [README](../README.md). The harness itself is documented in [`eval/README.md`](../eval/README.md);
-> current numbers are in the README's [results table](../README.md#current-results).
+> current numbers are in the README's [results table](../README.md#current-numbers-partial--read-the-caveats).
 
 ---
 
