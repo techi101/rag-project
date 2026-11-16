@@ -13,58 +13,36 @@ never touched.
 Chunks are also dumped to eval/chroma_eval/<key>_chunks.json so the hybrid
 (BM25 + dense) retriever can build its keyword index without re-parsing the PDF.
 """
-# WHAT THIS FILE IS: the "warehouse builder" of the evaluation. Before any question can be tested, each PDF must be
-# cut into chunks and stored as embeddings. This script does that once per (document, chunk size, overlap) and
-# saves the result in eval/chroma_eval/, so later runs just open the ready-made store.
-# A CHUNK = a small piece of a page (up to chunk_size characters). OVERLAP = characters repeated between two
-# neighbouring chunks so a sentence cut at the edge is not lost.
-# Real example: the "bi" document with 1000/200 becomes the folder bi_cs1000_co200 (275 chunks per eval/README.md)
-# plus bi_cs1000_co200_chunks.json (the plain text of every chunk, used by the BM25 keyword search).
-# Overall flow: for each document -> for each chunking scheme -> already complete? skip
-#   -> else PDF -> pages -> chunks -> save chunks.json -> embed in batches of 10 -> ChromaDB -> count vectors
-#
-# json = turn Python lists/dicts into text and back (used for the <key>_chunks.json files).
-import json
-# shutil = high-level file operations; here shutil.rmtree deletes a whole folder (a broken index).
-import shutil
-# sys = read command-line flags like --force and --chunks-only (sys.argv), and change the import path.
-import sys
-# time = pause between API calls (time.sleep) so the free tier's per-minute limit is not crossed.
-import time
-# pathlib = file paths that work on Windows and Linux.
-import pathlib
+# WHAT THIS FILE IS: cuts each PDF into chunks and saves their embeddings, once per (document, size, overlap).
+# Chunk = small piece of a page; overlap = chars repeated between neighbour chunks.
+# Example: "bi" at 1000/200 -> folder bi_cs1000_co200 (275 chunks) + bi_cs1000_co200_chunks.json (for BM25).
+# Flow: each doc -> each scheme -> complete? skip : PDF -> pages -> chunks -> chunks.json -> embed x10 -> Chroma -> count
+import json  # chunks.json read/write
+import shutil  # rmtree deletes a broken index folder
+import sys  # --force / --chunks-only flags + import path
+import time  # sleep between API calls (rate limit)
+import pathlib  # file paths
 
-# Add the eval/ folder to Python's import search list, so "import config" finds eval/config.py
-# even when the script is started from the project root (py -3.12 eval/build_index.py).
-sys.path.insert(0, str(pathlib.Path(__file__).parent))
-# config = eval/config.py: folders, model names, CONFIGS, DOCUMENTS, index_key().
-import config
+sys.path.insert(0, str(pathlib.Path(__file__).parent))  # so "import config" finds eval/config.py
+import config  # eval/config.py: folders, models, CONFIGS, DOCUMENTS
 
-# Load GOOGLE_API_KEY / GROQ_API_KEY from .env BEFORE the Google library is used, because it reads the key from os.environ.
-config.load_env()
+config.load_env()  # API keys into os.environ BEFORE Google lib is used
 
-# PyPDFLoader (LangChain) = reads a PDF and returns one Document per page, with the page index in metadata["page"].
-from langchain_community.document_loaders import PyPDFLoader
-# RecursiveCharacterTextSplitter = cuts text into chunks, trying to break at paragraphs first, then lines, sentences, words.
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-# Chroma = the LangChain wrapper around ChromaDB, a vector database that runs locally and saves to a folder on disk.
-from langchain_chroma import Chroma
-# GoogleGenerativeAIEmbeddings = calls Google's gemini-embedding-001 to turn text into vectors (lists of numbers).
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from langchain_community.document_loaders import PyPDFLoader  # PDF -> one Document per page
+from langchain_text_splitters import RecursiveCharacterTextSplitter  # cuts at paragraph, line, sentence, word
+from langchain_chroma import Chroma  # local vector DB saved to a folder
+from langchain_google_genai import GoogleGenerativeAIEmbeddings  # gemini-embedding-001: text -> vector
 
 # Batch size for embedding requests. 50 exceeds the free tier's per-minute limit
 # outright; 20 still trips it partway through a long document. 10 with a longer
 # pause sustains ~200 chunks without RESOURCE_EXHAUSTED.
-# EMBED_BATCH = 10 chunks are sent to Google per request (reason in the comment above: 50 and 20 hit the rate limit).
-# A RATE LIMIT = the most requests a free API allows per minute; going over gives the error RESOURCE_EXHAUSTED.
-EMBED_BATCH = 10
-# BATCH_PAUSE_S = wait 3 seconds after each batch, for the same reason.
-BATCH_PAUSE_S = 3.0
+# Rate limit = max requests per minute; over it -> RESOURCE_EXHAUSTED.
+EMBED_BATCH = 10  # chunks per Google request
+BATCH_PAUSE_S = 3.0  # wait 3 s after each batch
 
 
-# IN: path of a store folder  ->  OUT: how many vectors (embedded chunks) it holds, or -1 if it cannot be opened.
-# WHY: "built" must mean "has one vector per chunk". Counting tells a complete store from a half-built one.
-# Example: bi_cs1000_co200 once held 200 vectors for 275 chunks -> count_vectors gives 200 -> rebuild needed.
+# IN: store folder -> OUT: vector count, or -1 if it can't open
+# e.g. bi_cs1000_co200 once held 200 vectors for 275 chunks -> 200 -> rebuild
 def count_vectors(persist_dir):
     """
     Count vectors, then RELEASE the store.
@@ -75,203 +53,157 @@ def count_vectors(persist_dir):
     a 275-chunk document. The handle must be dropped and collected before the
     directory can be removed.
     """
-    # gc = Python's garbage collector (frees objects no one uses). Forcing it releases the open database file on Windows.
-    import gc
-    store = None
-    # try/except/finally: open the store and count; on any error return -1; ALWAYS (finally) close the store afterwards.
-    try:
-        store = Chroma(persist_directory=str(persist_dir),
-                       embedding_function=get_embeddings())
-        # _collection.count() = the number of vectors stored in the underlying ChromaDB collection (a named table of vectors).
-        return store._collection.count()
-    except Exception:
+    import gc  # garbage collector, frees the file lock
+    store = None  # not opened yet
+    try:  # error -> -1; finally always closes
+        store = Chroma(persist_directory=str(persist_dir),  # open saved store
+                       embedding_function=get_embeddings())  # same embedder
+        return store._collection.count()  # vectors in the ChromaDB collection
+    except Exception:  # can't open
         return -1
-    finally:
-        # Only close if the store was actually opened.
-        if store is not None:
-            # Stop Chroma's internal system so it lets go of its SQLite file. If even that fails, ignore it.
+    finally:  # runs no matter what
+        if store is not None:  # only if opened
             try:
-                store._client._system.stop()
-            except Exception:
+                store._client._system.stop()  # let go of the SQLite file
+            except Exception:  # ignore if even that fails
                 pass
-            # Drop our reference and run the garbage collector, so Windows releases the file lock.
-            del store
-        gc.collect()
+            del store  # drop our reference
+        gc.collect()  # Windows releases the lock
 
 
-# IN: path of a store folder  ->  OUT: nothing; the folder is deleted, or an error is raised if it cannot be.
-# WHY: rebuilding on top of old files would mix old and new vectors (once gave 475 vectors for 275 chunks).
-# Example: remove_index_dir(eval/chroma_eval/bi_cs1000_co200) -> folder gone, or RuntimeError after 4 tries.
+# IN: store folder -> OUT: nothing, folder deleted or RuntimeError after 4 tries
+# e.g. rebuilding on old files once gave 475 vectors for 275 chunks
 def remove_index_dir(persist_dir):
     """Delete a store directory, and confirm it is gone. Never assume."""
-    import gc
-    # Try up to 4 times. ignore_errors=True means rmtree does not raise, so we check ourselves if the folder still exists.
-    for attempt in range(4):
-        shutil.rmtree(persist_dir, ignore_errors=True)
-        # Folder gone -> success.
-        if not persist_dir.exists():
+    import gc  # garbage collector
+    for attempt in range(4):  # up to 4 tries
+        shutil.rmtree(persist_dir, ignore_errors=True)  # never raises, so we check below
+        if not persist_dir.exists():  # gone -> success
             return
-        # Still there (file lock) -> free memory and wait longer each time: 1.5 s, 3 s, 4.5 s, 6 s.
-        gc.collect()
-        time.sleep(1.5 * (attempt + 1))
-    # 4 failures -> stop loudly instead of corrupting the index.
-    raise RuntimeError(
+        gc.collect()  # still locked, free memory
+        time.sleep(1.5 * (attempt + 1))  # wait 1.5, 3, 4.5, 6 s
+    raise RuntimeError(  # 4 failures -> stop loudly
         "could not delete %s (file lock?). Close any process using it and retry; "
         "rebuilding on top of it would corrupt the index." % persist_dir)
 
 
-# IN: nothing  ->  OUT: an embeddings object for gemini-embedding-001 (the API key is read from os.environ).
-# WHY: one place that creates the embedder, so every store uses exactly the same model as the live app.
-# Example: get_embeddings().embed_query("CREATE DATABASE") -> a list of 3072 numbers.
+# IN: nothing -> OUT: gemini-embedding-001 embedder (key from os.environ)
+# e.g. get_embeddings().embed_query("CREATE DATABASE") -> 3072 numbers
 def get_embeddings():
-    return GoogleGenerativeAIEmbeddings(model=config.EMBED_MODEL)
+    return GoogleGenerativeAIEmbeddings(model=config.EMBED_MODEL)  # same model as the live app
 
 
-# IN: PDF path, chunk size, overlap  ->  OUT: (list of pages, list of chunks), both LangChain Documents.
-# WHY: same splitter settings as documind/ingest.py, so the eval measures what the app really does.
-# Example: chunk_document(mysql_pdf, 1000, 200) -> 72 pages -> 71 chunks (MySQL row of the chunk table in eval/README.md).
+# IN: PDF path, chunk size, overlap -> OUT: (pages, chunks)
+# e.g. chunk_document(mysql_pdf, 1000, 200) -> 72 pages -> 71 chunks (same splitter as documind/ingest.py)
 def chunk_document(path, chunk_size, chunk_overlap):
-    # Load the PDF: one Document per page.
-    pages = PyPDFLoader(path).load()
-    # separators = where to cut, in order of preference: blank line (paragraph), newline, ". " (sentence end),
-    # space (word), and "" (anywhere, the last resort).
-    splitter = RecursiveCharacterTextSplitter(
-        chunk_size=chunk_size,
-        chunk_overlap=chunk_overlap,
+    pages = PyPDFLoader(path).load()  # one Document per page
+    splitter = RecursiveCharacterTextSplitter(  # the chunk cutter
+        chunk_size=chunk_size,  # max chars per chunk
+        chunk_overlap=chunk_overlap,  # chars shared with neighbour
         separators=config.CHUNK_SEPARATORS,   # imported from documind/settings.py
     )
-    # split_documents splits each page on its own, so a chunk never spans two pages (verified: 0 of 792, eval/README.md).
-    return pages, splitter.split_documents(pages)
+    return pages, splitter.split_documents(pages)  # per page, so no chunk spans two pages (0 of 792)
 
 
-# IN: doc id, its metadata (path/label), chunk size, overlap, flags  ->  OUT: nothing; writes the store + chunks.json.
-# WHY: builds one index, but skips it when a complete one already exists (embedding costs API quota).
-# Example: build_one("bi", meta, 1000, 200) -> prints "bi_cs1000_co200  CACHED  (275 chunks, 275 vectors)" if done.
-# force=True rebuilds anyway; chunks_only=True only splits text (no embedding API calls).
+# IN: doc id, meta, size, overlap, flags -> OUT: nothing, writes store + chunks.json
+# e.g. build_one("bi", meta, 1000, 200) -> "bi_cs1000_co200  CACHED  (275 chunks, 275 vectors)" if done
 def build_one(doc_id, meta, chunk_size, chunk_overlap, force=False, chunks_only=False):
-    # Work out the names: folder for the vectors, and the JSON file for the chunk texts.
-    key = config.index_key(doc_id, chunk_size, chunk_overlap)
-    persist_dir = config.CHROMA_EVAL_DIR / key
-    chunks_path = config.CHROMA_EVAL_DIR / (key + "_chunks.json")
+    # ── Step 1: names for this index ──
+    key = config.index_key(doc_id, chunk_size, chunk_overlap)  # e.g. "bi_cs1000_co200"
+    persist_dir = config.CHROMA_EVAL_DIR / key  # vectors folder
+    chunks_path = config.CHROMA_EVAL_DIR / (key + "_chunks.json")  # chunk texts file
 
+    # ── Step 2: skip if already complete ──
     # "Already built" must mean the store holds a vector for EVERY chunk, not
     # merely that a directory exists. A batch that exhausts its retries leaves a
     # partial store behind, and a directory-existence check passes on it -- which
     # silently produced a bi_cs1000_co200 index holding 200 of 275 vectors, and
     # recall numbers measured against a document missing 27% of its content.
-    # Chunks file exists and no --force -> maybe already built. Read the chunk count n from the JSON file.
-    if chunks_path.exists() and not force:
-        n = len(json.loads(chunks_path.read_text(encoding="utf-8")))
-        # --chunks-only: having the chunks file is enough. "%-28s" prints the key left-aligned in 28 characters (neat columns).
-        if chunks_only:
-            print("   %-28s CACHED  (%d chunks)" % (key, n))
+    if chunks_path.exists() and not force:  # maybe built, no --force
+        n = len(json.loads(chunks_path.read_text(encoding="utf-8")))  # chunk count
+        if chunks_only:  # chunks file is enough
+            print("   %-28s CACHED  (%d chunks)" % (key, n))  # %-28s = left-aligned, 28 wide
             return
-        # A non-empty store folder exists -> count its vectors and compare with the chunk count.
-        if persist_dir.exists() and any(persist_dir.iterdir()):
-            have = count_vectors(persist_dir)
-            # Count matches -> complete -> skip.
-            if have == n:
+        if persist_dir.exists() and any(persist_dir.iterdir()):  # non-empty store folder
+            have = count_vectors(persist_dir)  # vectors stored
+            if have == n:  # complete -> skip
                 print("   %-28s CACHED  (%d chunks, %d vectors)" % (key, n, have))
                 return
-            # Count is wrong (partial or doubled store) -> say so and delete the folder before rebuilding.
-            # max(have, 0) prints 0 instead of -1 when the store could not be opened.
-            print("   %-28s WRONG SIZE (%d vectors for %d chunks) -- rebuilding"
-                  % (key, max(have, 0), n))
-            remove_index_dir(persist_dir)
+            print("   %-28s WRONG SIZE (%d vectors for %d chunks) -- rebuilding"  # partial or doubled
+                  % (key, max(have, 0), n))  # -1 shown as 0
+            remove_index_dir(persist_dir)  # delete before rebuild
 
-    # Split the PDF into chunks (no API call).
-    pages, chunks = chunk_document(meta["path"], chunk_size, chunk_overlap)
-    # end=" " keeps the cursor on the same line; flush=True prints it right away (before the slow embedding starts).
+    # ── Step 3: split the PDF (no API call) ──
+    pages, chunks = chunk_document(meta["path"], chunk_size, chunk_overlap)  # pages + chunks
     print("   %-28s %d pages -> %d chunks ..." % (key, len(pages), len(chunks)),
-          end=" ", flush=True)
+          end=" ", flush=True)  # same line, show now before slow embedding
 
-    # Save every chunk's text and page index as JSON. ensure_ascii=False keeps non-English characters readable.
-    # .get("page", 0) uses page 0 if a chunk has no page number.
+    # ── Step 4: save chunk texts for BM25 ──
     chunks_path.write_text(json.dumps(
-        [{"text": c.page_content, "page": c.metadata.get("page", 0)} for c in chunks],
-        ensure_ascii=False), encoding="utf-8")
+        [{"text": c.page_content, "page": c.metadata.get("page", 0)} for c in chunks],  # page 0 if missing
+        ensure_ascii=False), encoding="utf-8")  # keep non-English chars readable
 
     # Splitting costs no API calls -- only embedding does. --chunks-only stops
     # here, which is enough for BM25 (keyword) retrieval and lets the offline
     # baseline be completed while the embedding quota is exhausted.
-    # --chunks-only stops here, before any embedding.
-    if chunks_only:
+    if chunks_only:  # no embedding wanted
         print("chunks only (no embedding)")
         return
 
-    # Create the store folder (parents=True also creates eval/chroma_eval/ if missing; exist_ok=True = no error if present).
-    persist_dir.mkdir(parents=True, exist_ok=True)
-    embeddings = get_embeddings()
+    # ── Step 5: embed in batches of 10 with retries ──
+    persist_dir.mkdir(parents=True, exist_ok=True)  # make folder (+ parents), ok if exists
+    embeddings = get_embeddings()  # the embedder
 
-    # Open an empty (or existing) Chroma store in that folder.
-    store = Chroma(persist_directory=str(persist_dir), embedding_function=embeddings)
-    # Loop over the chunks 10 at a time: i = 0, 10, 20, ... (range with a step of EMBED_BATCH).
-    for i in range(0, len(chunks), EMBED_BATCH):
-        # Slice out this batch: chunks i to i+9.
-        batch = chunks[i:i + EMBED_BATCH]
-        # Up to 6 attempts per batch.
-        for attempt in range(6):
-            # Embed the batch and add it to the store. Success -> break out of the retry loop.
+    store = Chroma(persist_directory=str(persist_dir), embedding_function=embeddings)  # empty store
+    for i in range(0, len(chunks), EMBED_BATCH):  # i = 0, 10, 20, ...
+        batch = chunks[i:i + EMBED_BATCH]  # chunks i..i+9
+        for attempt in range(6):  # up to 6 tries per batch
             try:
-                store.add_documents(batch)
-                break
-            # Failure (usually the rate limit) -> EXPONENTIAL BACKOFF = wait longer after every failure:
-            # 5 * 2^attempt = 5, 10, 20, 40, 80, 160 seconds. i // EMBED_BATCH = the batch number (// = whole-number division).
-            except Exception as e:
-                wait = 5 * (2 ** attempt)
+                store.add_documents(batch)  # embed + save
+                break  # success, leave retry loop
+            except Exception as e:  # usually the rate limit
+                wait = 5 * (2 ** attempt)  # backoff: 5, 10, 20, 40, 80, 160 s
                 print("\n      batch %d failed (%s), retrying in %ds"
-                      % (i // EMBED_BATCH, type(e).__name__, wait))
-                time.sleep(wait)
-        # for...else: the "else" runs only if the loop finished WITHOUT "break", i.e. all 6 attempts failed.
-        else:
+                      % (i // EMBED_BATCH, type(e).__name__, wait))  # batch number, error name
+                time.sleep(wait)  # wait, then retry
+        else:  # for...else: runs only if no "break" (all 6 failed)
             # Never carry on quietly: a skipped batch means missing content, and
             # a store that looks built but is not corrupts every number measured
             # against it.
             raise RuntimeError(
                 "batch %d of %s exhausted retries -- index would be incomplete"
                 % (i // EMBED_BATCH, key))
-        # Pause 3 seconds between batches to stay under the per-minute limit.
-        time.sleep(BATCH_PAUSE_S)
+        time.sleep(BATCH_PAUSE_S)  # 3 s pause, stay under per-minute limit
 
-    # Final check: the number of vectors must equal the number of chunks.
-    final = store._collection.count()
-    # Mismatch -> print INCOMPLETE (the next run's count check will catch and rebuild it).
-    if final != len(chunks):
+    # ── Step 6: vectors must equal chunks ──
+    final = store._collection.count()  # vectors stored
+    if final != len(chunks):  # mismatch; next run's check rebuilds it
         print("INCOMPLETE %d/%d" % (final, len(chunks)))
-    # Match -> done.
-    else:
+    else:  # match -> done
         print("done (%d vectors)" % final)
 
 
-# IN: command-line flags  ->  OUT: nothing; builds every index for every document.
-# WHY: the entry point. Run: py -3.12 eval/build_index.py [--chunks-only] [--force]
-# Example: with the 6 CONFIGS there are 3 chunking schemes -> 3 indexes per document, 9 for the 3 documents.
+# IN: command-line flags -> OUT: nothing, builds every index
+# e.g. py -3.12 eval/build_index.py [--chunks-only] [--force]; 3 schemes x 3 docs = 9 indexes
 def main():
-    # Read the flags: True if the word appears on the command line.
-    force = "--force" in sys.argv
-    chunks_only = "--chunks-only" in sys.argv
-    # Make sure eval/chroma_eval/ exists.
-    config.CHROMA_EVAL_DIR.mkdir(parents=True, exist_ok=True)
+    force = "--force" in sys.argv  # rebuild even if complete
+    chunks_only = "--chunks-only" in sys.argv  # split only, no embedding
+    config.CHROMA_EVAL_DIR.mkdir(parents=True, exist_ok=True)  # make eval/chroma_eval/
 
-    # Collect the distinct (chunk_size, chunk_overlap) pairs from all configs. The set {...} removes repeats, so
-    # baseline, k8, hybrid and hybrid_k8 (all 1000/200) count once. Result: [(500, 100), (1000, 200), (2000, 400)].
+    # Distinct (size, overlap) pairs -> [(500, 100), (1000, 200), (2000, 400)].
     schemes = sorted({(c["chunk_size"], c["chunk_overlap"]) for c in config.CONFIGS.values()})
-    print("Chunking schemes to build: %s" % ", ".join("%d/%d" % s for s in schemes))
-    # Tell the user no API calls will be made in --chunks-only mode.
-    if chunks_only:
+    print("Chunking schemes to build: %s" % ", ".join("%d/%d" % s for s in schemes))  # e.g. "500/100, ..."
+    if chunks_only:  # tell user: no API calls
         print("--chunks-only: splitting text only, no embedding API calls.")
 
-    # Loop over every document in documents.json...
-    for doc_id, meta in config.DOCUMENTS.items():
-        print("\n[%s] %s" % (doc_id, meta["label"]))
-        # ...and every chunking scheme, building (or skipping) each index.
-        for chunk_size, chunk_overlap in schemes:
+    for doc_id, meta in config.DOCUMENTS.items():  # each document
+        print("\n[%s] %s" % (doc_id, meta["label"]))  # e.g. "[bi] ..."
+        for chunk_size, chunk_overlap in schemes:  # each chunking scheme
             build_one(doc_id, meta, chunk_size, chunk_overlap, force=force,
-                      chunks_only=chunks_only)
+                      chunks_only=chunks_only)  # build or skip
 
-    print("\nAll indexes ready in %s" % config.CHROMA_EVAL_DIR)
+    print("\nAll indexes ready in %s" % config.CHROMA_EVAL_DIR)  # final message
 
 
-# Run main() only when this file is started directly, not when it is imported by another script.
-if __name__ == "__main__":
+if __name__ == "__main__":  # only when run directly, not imported
     main()

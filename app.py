@@ -4,288 +4,190 @@ RAG document Q&A: Google gemini-embedding-001 + ChromaDB for retrieval,
 Groq openai/gpt-oss-20b for answers.
 """
 
-# WHAT THIS FILE IS: the "face" (the shop counter) of DocuMind AI. It draws the web page the user sees:
-# a sidebar to paste API keys and upload a PDF, a welcome page, and a chat page. It does NO RAG work
-# itself; it hands every real job to the documind/ package (the "brain") and shows the results.
-# Real example: you paste your Google key (starts "AIza...") and Groq key (starts "gsk_..."), upload
-# the MySQL Handbook PDF, click "Analyze Document", then click the suggestion
-# "What is the main topic of this document?". The answer appears in a chat bubble with an expander
-# "4 Source Citations" listing the 4 retrieved chunks and their page numbers.
-# Words used below:
-#   Streamlit       = a Python library that turns a Python script into a web page (no HTML/JS needed).
-#                     IMPORTANT: Streamlit re-runs this WHOLE file from top to bottom on every click or
-#                     typed message. That is why anything we want to remember must go in session_state.
-#   session_state   = Streamlit's memory box for one browser tab. It survives the re-runs above.
-#                     Example: st.session_state.messages keeps the whole chat so far.
-#   API key         = a secret password that lets this app use a paid/free online service (Google, Groq).
-#   CSS             = the styling language of web pages (colours, fonts, sizes). Ours is in assets/style.css.
-# Overall flow: sidebar (keys + upload) -> "Analyze Document" -> stats + summary + vector store + QA chain
-#               saved in session_state -> chat page -> question -> run_qa() -> answer + citations shown
-#
-# os = read environment variables (the API keys from .env) and delete the temporary PDF file.
-import os
-# html = Python's built-in HTML helper. html.escape() turns "<" into "&lt;" etc., so text from the PDF
-# (file name, summary) is shown as plain text and can never act as HTML code inside our page.
-import html
-# tempfile = makes temporary files. The uploaded PDF is only in memory; PyPDFLoader needs a real file path.
-import tempfile
-# Path = an easy way to build file paths; used to find assets/style.css next to this file.
-from pathlib import Path
-# streamlit = the web UI library described above. "as st" = short name, so we write st.button(...).
-import streamlit as st
-# PdfReader (from pypdf, a PDF-reading library) = used here only to count pages and words for the stats box.
-from pypdf import PdfReader
-# load_dotenv (from python-dotenv) = reads the .env file and puts GOOGLE_API_KEY / GROQ_API_KEY into
-# the environment, where os.getenv() can find them.
-from dotenv import load_dotenv
+# WHAT THIS FILE IS: the web page (sidebar, welcome page, chat page); all RAG work is in documind/.
+# Example: paste Google key ("AIza...") + Groq key ("gsk_..."), upload the MySQL Handbook, click
+#   "Analyze Document", ask "What is the main topic of this document?" -> answer + "4 Source Citations".
+# Flow: sidebar (keys + upload) -> Analyze -> stats + summary + vector store + QA chain in session_state
+#   -> chat page -> question -> run_qa() -> answer + citations
+# Streamlit = Python script -> web page; it RE-RUNS this whole file on every click, so memory lives in session_state.
+import os  # read API keys from env, delete temp PDF
+import html  # html.escape: "<" -> "&lt;", PDF text can't act as HTML
+import tempfile  # temp file: PyPDFLoader needs a real path
+from pathlib import Path  # finds assets/style.css next to this file
+import streamlit as st  # the web UI library
+from pypdf import PdfReader  # only to count pages + words for stats
+from dotenv import load_dotenv  # reads .env into environment variables
 
-# Load environment variables from .env file
-# After this line, os.getenv("GROQ_API_KEY") returns the key written in .env (if a .env file exists).
-load_dotenv()
+load_dotenv()  # now os.getenv("GROQ_API_KEY") sees .env values
 
-# Our own functions from the documind/ package (the brain):
-#   process_pdf = build a new vector store, load_existing_vectorstore = reuse a saved one,
-#   create_qa_chain = make retriever + LLM + prompt, run_qa = answer one question,
-#   generate_summary = 3-bullet summary, page_label = turn metadata page 0 into "1".
-from documind import (
-    process_pdf,
-    load_existing_vectorstore,
-    create_qa_chain,
-    run_qa,
-    generate_summary,
-    page_label,
+from documind import (  # our RAG "brain" package
+    process_pdf,  # build a new vector store
+    load_existing_vectorstore,  # reuse a saved one
+    create_qa_chain,  # retriever + LLM + prompt
+    run_qa,  # answer one question
+    generate_summary,  # 3-bullet summary
+    page_label,  # metadata page 0 -> "1"
 )
-# GEN_MODEL = the answer model's name, shown on the welcome page so the page never names the wrong model.
-from documind.settings import GEN_MODEL
+from documind.settings import GEN_MODEL  # model name shown on welcome page, never stale
 
-# ── Page Config ─────────────────────────────────────────────────────────────────
-# set_page_config must be the first Streamlit command. It sets the browser tab title and icon (a brain
-# emoji), uses the full page width ("wide"), and opens the sidebar on start ("expanded").
-st.set_page_config(
-    page_title="DocuMind AI — Document Intelligence",
-    page_icon="🧠",
-    layout="wide",
-    initial_sidebar_state="expanded",
+# ── BLOCK: page config ──────────────────────────────────────────────────
+# Must be the first Streamlit command.
+st.set_page_config(  # browser tab + layout
+    page_title="DocuMind AI — Document Intelligence",  # tab title
+    page_icon="🧠",  # tab icon
+    layout="wide",  # full page width
+    initial_sidebar_state="expanded",  # sidebar open at start
 )
 
-# ── Global CSS ──────────────────────────────────────────────────────────────────
-# Inject custom CSS (styling) into the page. The CSS is read from assets/style.css.
-# It sets the Inter font (loaded from Google Fonts), the dark GitHub-like colours (#0D1117 background),
-# the styles for our own HTML blocks (.hero-title, .feat-card, .step-num, .chat-doc-bar, .summary-box)
-# and smaller sizes for phones: "@media (max-width: 768px)" = only apply on screens 768 pixels wide or
-# less (tablets/phones), and "@media (max-width: 480px)" = only on small phones.
-# "!important" in CSS = override Streamlit's own built-in style.
-# unsafe_allow_html=True = let st.markdown render raw HTML/CSS (Streamlit blocks it by default for safety).
-# Keeping the CSS in its own file means app.py holds only UI logic.
-# Path(__file__).parent = the folder app.py is in, so the file is found no matter where streamlit is run from.
-_css = (Path(__file__).parent / "assets" / "style.css").read_text(encoding="utf-8")
-st.markdown("<style>" + _css + "</style>", unsafe_allow_html=True)
+# ── BLOCK: global CSS (assets/style.css) ────────────────────────────────
+# CSS = page styling: Inter font, dark #0D1117 theme, .hero-title/.feat-card/... classes, phone sizes (768px/480px).
+_css = (Path(__file__).parent / "assets" / "style.css").read_text(encoding="utf-8")  # works from any run folder
+st.markdown("<style>" + _css + "</style>", unsafe_allow_html=True)  # unsafe_allow_html = let raw HTML/CSS render
 
 
-# ── Session State ───────────────────────────────────────────────────────────────
-# Give every session_state key a starting value, but ONLY the first time (the "if not in" check below).
-# Without the check, every re-run would wipe the chat. What each key holds:
-#   messages           = chat shown on screen: list of {"role": "user"/"assistant", "content": text, "sources": chunks}
-#   qa_chain           = the dict from create_qa_chain() (None = no document processed yet -> welcome page)
-#   chat_history_pairs = (question, answer) pairs passed to run_qa() as conversation memory
-#   pdf_name           = the uploaded file name (uploaded_file.name), shown in the chat header
-#   doc_summary        = text from generate_summary()
-#   doc_stats          = {"pages": ..., "read_time": ..., "words": ...} for the stats box
-#   processing         = True while a PDF is being indexed (disables the chat box)
-#   pending_question   = a suggestion button's question waiting to be asked on the next re-run
-# Loop over every (key, default value) pair of the dict.
-for k, v in {
-    "messages": [], "qa_chain": None, "chat_history_pairs": [],
-    "pdf_name": None, "doc_summary": None, "doc_stats": {},
-    "processing": False, "pending_question": None,
+# ── BLOCK: session state defaults ───────────────────────────────────────
+# session_state = app memory between reruns, per browser tab. Set defaults only once, or reruns wipe the chat.
+for k, v in {  # each (key, default)
+    "messages": [], "qa_chain": None, "chat_history_pairs": [],  # chat, chain (None = welcome), LLM memory
+    "pdf_name": None, "doc_summary": None, "doc_stats": {},  # file name, summary text, {"pages", "read_time", "words"}
+    "processing": False, "pending_question": None,  # True while indexing; starter question waiting
 }.items():
-    # Key missing -> this is the first run in this browser tab -> set the default.
-    if k not in st.session_state:
-        st.session_state[k] = v
+    if k not in st.session_state:  # first run in this tab?
+        st.session_state[k] = v  # set the default
 
 
-# ── SIDEBAR ─────────────────────────────────────────────────────────────────────
-# Everything inside "with st.sidebar:" is drawn in the left sidebar.
-with st.sidebar:
-    # Sidebar logo: "DocuMind AI" in gradient text + the line "RAG · LangChain · Groq" (raw HTML).
+# ── BLOCK: sidebar ──────────────────────────────────────────────────────
+with st.sidebar:  # everything here draws in the left sidebar
+    # ── Step 1: logo ──
     st.markdown("""
     <div style="padding:4px 0 8px">
       <span style="font-size:22px;font-weight:800;background:linear-gradient(135deg,#58A6FF,#BC8CFF);
         -webkit-background-clip:text;-webkit-text-fill-color:transparent;">🧠 DocuMind AI</span><br>
       <span style="font-size:12px;color:#8B949E;">RAG · LangChain · Groq</span>
     </div>
-    """, unsafe_allow_html=True)
-    # st.divider() = a thin horizontal line.
-    st.divider()
+    """, unsafe_allow_html=True)  # gradient title + tagline as raw HTML
+    st.divider()  # thin horizontal line
 
-    st.markdown("**🔑 Google API Key** (for embeddings)")
-    # Password-style text box for the Google key. "google_api_key" is the box's internal label; it is hidden
-    # (label_visibility="collapsed") because the bold text above already labels it. type="password" shows dots.
-    user_google_key = st.text_input(
-        "google_api_key", label_visibility="collapsed",
-        value="",
-        type="password",
-        placeholder="Enter your Google API Key (or leave blank to use host key)"
+    # ── Step 2: API keys (typed key first, else .env / host secret) ──
+    st.markdown("**🔑 Google API Key** (for embeddings)")  # bold label
+    user_google_key = st.text_input(  # password box for Google key
+        "google_api_key", label_visibility="collapsed",  # internal label, hidden
+        value="",  # starts empty
+        type="password",  # shows dots
+        placeholder="Enter your Google API Key (or leave blank to use host key)"  # grey hint text
     )
-    # Use the key typed in the box; if the box is empty, fall back to GOOGLE_API_KEY from .env / host secrets
-    # (or "" if neither exists). This "x if x else y" form is a one-line if/else.
-    google_api_key = user_google_key if user_google_key else os.getenv("GOOGLE_API_KEY", "")
-    # st.caption = small grey text. Here a link to where a free key can be made.
-    st.caption("Free key → [aistudio.google.com](https://aistudio.google.com/app/apikey)")
+    google_api_key = user_google_key if user_google_key else os.getenv("GOOGLE_API_KEY", "")  # typed, else env, else ""
+    st.caption("Free key → [aistudio.google.com](https://aistudio.google.com/app/apikey)")  # small grey link
 
-    st.markdown("**🔑 Groq API Key** (for AI chat)")
-    # Same password box, for the Groq key (used for answers and the summary).
-    user_groq_key = st.text_input(
-        "groq_api_key", label_visibility="collapsed",
-        value="",
-        type="password",
-        placeholder="Enter your Groq API Key (or leave blank to use host key)"
+    st.markdown("**🔑 Groq API Key** (for AI chat)")  # bold label
+    user_groq_key = st.text_input(  # password box for Groq key
+        "groq_api_key", label_visibility="collapsed",  # internal label, hidden
+        value="",  # starts empty
+        type="password",  # shows dots
+        placeholder="Enter your Groq API Key (or leave blank to use host key)"  # grey hint text
     )
-    # Typed Groq key first, else GROQ_API_KEY from the environment, else "".
-    groq_api_key = user_groq_key if user_groq_key else os.getenv("GROQ_API_KEY", "")
-    st.caption("Free key → [console.groq.com](https://console.groq.com/keys)")
+    groq_api_key = user_groq_key if user_groq_key else os.getenv("GROQ_API_KEY", "")  # typed, else env, else ""
+    st.caption("Free key → [console.groq.com](https://console.groq.com/keys)")  # small grey link
 
-    # If either key is still empty, show a yellow warning. The app still draws, but cannot process a PDF.
-    if not google_api_key or not groq_api_key:
-        st.warning("⚠️ Both API keys required above.")
+    if not google_api_key or not groq_api_key:  # a key missing?
+        st.warning("⚠️ Both API keys required above.")  # yellow warning, page still draws
 
-    st.divider()
+    st.divider()  # line
 
-    # Upload
-    # PDF upload box. type=["pdf"] = the file picker accepts only .pdf files.
-    # uploaded_file = None until the user picks a file; then it is an in-memory file object.
-    st.markdown("**📂 Upload Document**")
-    uploaded_file = st.file_uploader(
-        "pdf_upload", label_visibility="collapsed", type=["pdf"]
+    # ── Step 3: PDF upload ──
+    st.markdown("**📂 Upload Document**")  # label
+    uploaded_file = st.file_uploader(  # None until a file is picked
+        "pdf_upload", label_visibility="collapsed", type=["pdf"]  # .pdf only
     )
 
-    # A file is chosen but a key is missing -> warn (the Analyze button is not shown in this case).
-    if uploaded_file and (not google_api_key or not groq_api_key):
-        st.warning("⚠️ Enter both API keys above.")
+    if uploaded_file and (not google_api_key or not groq_api_key):  # file but key missing?
+        st.warning("⚠️ Enter both API keys above.")  # Analyze button stays hidden
 
-    # A file is chosen AND both keys exist -> show the Analyze button.
-    if uploaded_file and google_api_key and groq_api_key:
-        # st.button returns True only on the re-run caused by clicking it. type="primary" = highlighted button.
-        if st.button("🚀 Analyze Document", use_container_width=True, type="primary"):
-            # New document: clear the old chat, history, chain and summary, and mark that processing has started.
-            st.session_state.update({
-                "messages": [], "chat_history_pairs": [],
-                "qa_chain": None, "doc_summary": None, "processing": True,
+    # ── Step 4: Analyze button (PDF + both keys present) ──
+    if uploaded_file and google_api_key and groq_api_key:  # ready to analyze?
+        if st.button("🚀 Analyze Document", use_container_width=True, type="primary"):  # True only on the click
+            st.session_state.update({  # start fresh for the new document
+                "messages": [], "chat_history_pairs": [],  # clear old chat
+                "qa_chain": None, "doc_summary": None, "processing": True,  # clear old chain + summary
             })
-            # st.spinner shows a turning wheel with this text while the code inside the "with" block runs.
-            with st.spinner("🔍 Embedding & indexing your document..."):
-                # tmp_path starts as None so the "finally" block below knows whether a temp file was created.
-                tmp_path = None
-                # try: if anything below fails (bad key, quota used up, scanned PDF), jump to "except" and show the error.
-                try:
-                    # Save the uploaded bytes into a real temporary .pdf file on disk, because PyPDFLoader and PdfReader
-                    # need a file path. delete=False = keep the file after the "with" block closes it (we delete it ourselves
-                    # in "finally"; on Windows a file still open cannot be read by another reader).
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
-                        tmp.write(uploaded_file.read())
-                        tmp_path = tmp.name
+            with st.spinner("🔍 Embedding & indexing your document..."):  # loading wheel while this runs
+                tmp_path = None  # no temp file yet (used in "finally")
+                try:  # bad key / quota / scanned PDF -> "except"
+                    # ── Step 4a: save the upload as a real .pdf file ──
+                    # delete=False: we delete it in "finally"; Windows can't reread a still-open file.
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:  # temp file
+                        tmp.write(uploaded_file.read())  # write the uploaded bytes
+                        tmp_path = tmp.name  # remember where it is
 
-                    # Open the PDF with pypdf just to count pages.
-                    reader = PdfReader(tmp_path)
-                    npages = len(reader.pages)
-                    # Count the real words instead of guessing per page;
-                    # read time assumes ~200 words per minute.
-                    # For every page: extract_text() (or "" if it returns None), split on spaces into words, count them,
-                    # and add up the counts of all pages.
-                    nwords = sum(len((p.extract_text() or "").split())
-                                 for p in reader.pages)
-                    # Save the stats shown in the sidebar and chat header.
-                    # read_time: words / 200 (200 words per minute), rounded, but never below 1 minute (max(1, ...)).
-                    # words: f"{nwords:,}" adds thousands commas, e.g. 12345 -> "12,345".
-                    st.session_state.doc_stats = {
-                        "pages": npages,
-                        "read_time": f"~{max(1, round(nwords / 200))} min",
-                        "words": f"{nwords:,}",
+                    # ── Step 4b: stats (pages, words, read time) ──
+                    reader = PdfReader(tmp_path)  # open with pypdf
+                    npages = len(reader.pages)  # e.g. 72 pages
+                    # Real word count, not a per-page guess; read time at ~200 words/min.
+                    nwords = sum(len((p.extract_text() or "").split())  # words on one page ("" if None)
+                                 for p in reader.pages)  # summed over all pages
+                    st.session_state.doc_stats = {  # shown in sidebar + chat header
+                        "pages": npages,  # page count
+                        "read_time": f"~{max(1, round(nwords / 200))} min",  # 200 words/min, at least 1 min
+                        "words": f"{nwords:,}",  # 12345 -> "12,345"
                     }
-                    # Ask Groq for the 3-bullet summary of the first 5 pages (a Groq call happens on every Analyze click).
-                    st.session_state.doc_summary = generate_summary(tmp_path, groq_api_key)
+                    st.session_state.doc_summary = generate_summary(tmp_path, groq_api_key)  # Groq call on every Analyze
 
-                    # Try to reuse a saved vector store for this exact PDF (same content hash) -> no Google calls needed.
-                    vector_store = load_existing_vectorstore(tmp_path, google_api_key)
-                    # None = no usable saved store (new PDF, changed settings, or incomplete) -> build it now.
-                    if not vector_store:
-                        # A second spinner while the slow step runs: chunk + embed with Google + save to ChromaDB.
-                        with st.spinner("🧠 Building knowledge base..."):
-                            vector_store = process_pdf(tmp_path, google_api_key)
+                    # ── Step 4c: reuse saved index or build a new one ──
+                    vector_store = load_existing_vectorstore(tmp_path, google_api_key)  # same hash -> no Google calls
+                    if not vector_store:  # None = new PDF, changed settings, or incomplete
+                        with st.spinner("🧠 Building knowledge base..."):  # second spinner for slow step
+                            vector_store = process_pdf(tmp_path, google_api_key)  # chunk + embed + save
 
-                    # Build retriever + LLM + prompt once and keep them in session_state, so each question reuses them.
-                    # qa_chain is no longer None, so the next re-run shows the chat page instead of the welcome page.
-                    st.session_state.qa_chain = create_qa_chain(vector_store, groq_api_key)
-                    st.session_state.pdf_name = uploaded_file.name
-                    st.session_state.processing = False
-                    # Green success box, then st.rerun() = restart the script now so the chat page appears immediately.
-                    st.success("✅ Document ready!")
-                    st.rerun()
+                    # ── Step 4d: build the chain once, switch to chat page ──
+                    st.session_state.qa_chain = create_qa_chain(vector_store, groq_api_key)  # not None -> chat page
+                    st.session_state.pdf_name = uploaded_file.name  # for the chat header
+                    st.session_state.processing = False  # done indexing
+                    st.success("✅ Document ready!")  # green box
+                    st.rerun()  # restart script now, chat page shows
 
-                # except: show the error text in a red box (e.g. Google's RESOURCE_EXHAUSTED when the daily quota is
-                # used up, or the "No text could be extracted" message for a scanned PDF) and stop "processing".
-                except Exception as e:
-                    st.error(f"❌ {e}")
-                    st.session_state.processing = False
-                # finally: runs whether it worked or failed.
-                finally:
-                    # The PDF is only needed while indexing; don't leave a copy
-                    # of every upload in the temp folder.
-                    # If the temp file was created and still exists, delete it.
-                    if tmp_path and os.path.exists(tmp_path):
-                        # try/except OSError: if deleting fails (for example the file is locked on Windows), ignore it;
-                        # a leftover temp file must not crash the app.
-                        try:
-                            os.remove(tmp_path)
-                        except OSError:
-                            pass
+                except Exception as e:  # e.g. RESOURCE_EXHAUSTED quota, "No text could be extracted"
+                    st.error(f"❌ {e}")  # red error box
+                    st.session_state.processing = False  # re-enable chat box
+                finally:  # runs on success or failure
+                    # Don't leave a copy of every upload in the temp folder.
+                    if tmp_path and os.path.exists(tmp_path):  # temp file exists?
+                        try:  # deleting may fail (Windows lock)
+                            os.remove(tmp_path)  # delete it
+                        except OSError:  # leftover file must not crash the app
+                            pass  # ignore
 
-    # Analytics
-    # The stats and actions only appear after a document has been processed.
-    if st.session_state.qa_chain and st.session_state.doc_stats:
-        st.divider()
-        st.markdown("**📊 Document Stats**")
-        # Two side-by-side boxes: page count and read time. st.metric = a big number with a small label.
-        c1, c2 = st.columns(2)
-        c1.metric("Pages", st.session_state.doc_stats.get("pages", 0))
-        c2.metric("Read Time", st.session_state.doc_stats.get("read_time", "—"))
-        # Word count as small text. "—" is shown if the key is missing.
-        st.caption(f"{st.session_state.doc_stats.get('words','—')} words")
+    # ── Step 5: stats + actions (only after a document is processed) ──
+    if st.session_state.qa_chain and st.session_state.doc_stats:  # document loaded?
+        st.divider()  # line
+        st.markdown("**📊 Document Stats**")  # label
+        c1, c2 = st.columns(2)  # two side-by-side boxes
+        c1.metric("Pages", st.session_state.doc_stats.get("pages", 0))  # metric = big number + label
+        c2.metric("Read Time", st.session_state.doc_stats.get("read_time", "—"))  # e.g. "~95 min"
+        st.caption(f"{st.session_state.doc_stats.get('words','—')} words")  # small word count, "—" if missing
 
-        st.divider()
-        st.markdown("**⚙️ Actions**")
-        # The Export button only makes sense if there is at least one message.
-        if st.session_state.messages:
-            # Build a plain text chat log: a title, the document name, a line of 48 "=" signs as a divider.
-            log = f"DocuMind AI — Chat Log\nDocument: {st.session_state.pdf_name}\n{'='*48}\n\n"
-            # Add each message as "[You]" or "[AI]" followed by its text and a blank line.
-            for m in st.session_state.messages:
-                log += f"[{'You' if m['role']=='user' else 'AI'}]\n{m['content']}\n\n"
-            # st.download_button = a button that downloads the given text as the file "documind_chat.txt".
-            # mime "text/plain" tells the browser it is a plain text file.
-            st.download_button("💾 Export Chat", data=log,
-                               file_name="documind_chat.txt", mime="text/plain",
-                               use_container_width=True)
-        # Clear Chat: empty the visible chat and the memory, then re-run so the page updates. The PDF stays loaded.
-        if st.button("🗑️ Clear Chat", use_container_width=True):
-            st.session_state.messages = []
-            st.session_state.chat_history_pairs = []
-            st.rerun()
+        st.divider()  # line
+        st.markdown("**⚙️ Actions**")  # label
+        if st.session_state.messages:  # export only if chat has messages
+            log = f"DocuMind AI — Chat Log\nDocument: {st.session_state.pdf_name}\n{'='*48}\n\n"  # title + 48 "=" line
+            for m in st.session_state.messages:  # each chat message
+                log += f"[{'You' if m['role']=='user' else 'AI'}]\n{m['content']}\n\n"  # "[You]" or "[AI]" + text
+            st.download_button("💾 Export Chat", data=log,  # button that downloads the log
+                               file_name="documind_chat.txt", mime="text/plain",  # as a plain text file
+                               use_container_width=True)  # full width
+        if st.button("🗑️ Clear Chat", use_container_width=True):  # clears chat, PDF stays loaded
+            st.session_state.messages = []  # visible chat
+            st.session_state.chat_history_pairs = []  # LLM memory
+            st.rerun()  # redraw now
 
 
-# ── MAIN AREA ───────────────────────────────────────────────────────────────────
-
-# MAIN AREA: two possible pages. No QA chain yet -> welcome (hero) page. Otherwise -> chat page ("else" below).
-if not st.session_state.qa_chain:
-    # ── HERO ──────────────────────────────────────────────────────────────────
+# ── BLOCK: main area ────────────────────────────────────────────────────
+# No QA chain yet -> welcome page; else -> chat page.
+if not st.session_state.qa_chain:  # no document yet?
+    # ── Step 1: hero (title, subtitle, badges) ──
     # Center column trick — narrow padding columns either side
-    # st.columns([1, 8, 1]) = 3 columns with widths in ratio 1:8:1. Only the middle one is used ("_" = unused),
-    # so the content sits centred with empty space on both sides.
-    _, hero_col, _ = st.columns([1, 8, 1])
-    with hero_col:
-        # Big title, subtitle and 4 small "badge" pills, written as HTML with the CSS classes from assets/style.css.
-        # f-string: {model_name} is filled with the model's short name, e.g. "gpt-oss-20b" from "openai/gpt-oss-20b".
-        model_name = GEN_MODEL.split("/")[-1]
+    _, hero_col, _ = st.columns([1, 8, 1])  # widths 1:8:1, use only middle ("_" = unused)
+    with hero_col:  # draw inside middle column
+        model_name = GEN_MODEL.split("/")[-1]  # "openai/gpt-oss-20b" -> "gpt-oss-20b"
         st.markdown(f"""
         <div style="text-align:center; padding: 48px 0 32px;">
           <div style="font-size:72px; margin-bottom:16px; filter:drop-shadow(0 0 28px rgba(88,166,255,0.55));
@@ -300,103 +202,91 @@ if not st.session_state.qa_chain:
             <span class="badge-pill"><b>🆓</b> Free-tier APIs</span>
           </div>
         </div>
-        """, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)  # HTML using style.css classes
 
-    # ── FEATURE CARDS (using st.columns — perfectly aligned) ──────────────────
-    # Same centring trick (ratio 0.5 : 9 : 0.5) for the 6 feature cards.
-    _, cards_col, _ = st.columns([0.5, 9, 0.5])
-    with cards_col:
-        # First row: 3 equal columns, one card in each.
-        r1c1, r1c2, r1c3 = st.columns(3, gap="medium")
+    # ── Step 2: 6 feature cards (2 rows of 3) ──
+    _, cards_col, _ = st.columns([0.5, 9, 0.5])  # same centring, 0.5:9:0.5
+    with cards_col:  # inside middle column
+        r1c1, r1c2, r1c3 = st.columns(3, gap="medium")  # row 1: 3 equal columns
 
-        # Each card is one HTML block using the .feat-card / .feat-icon / .feat-title / .feat-desc styles.
-        with r1c1:
+        with r1c1:  # card 1
             st.markdown("""
             <div class="feat-card">
               <span class="feat-icon">📄</span>
               <div class="feat-title">Any PDF Document</div>
               <div class="feat-desc">Research papers, contracts, financial reports, textbooks — any text-based PDF (scanned PDFs need OCR, not yet supported).</div>
-            </div>""", unsafe_allow_html=True)
+            </div>""", unsafe_allow_html=True)  # .feat-card HTML
 
-        with r1c2:
+        with r1c2:  # card 2
             st.markdown("""
             <div class="feat-card">
               <span class="feat-icon">🔍</span>
               <div class="feat-title">Semantic Search</div>
               <div class="feat-desc">Finds the most relevant paragraphs by meaning — not just keyword matching. Powered by Google's embedding model.</div>
-            </div>""", unsafe_allow_html=True)
+            </div>""", unsafe_allow_html=True)  # .feat-card HTML
 
-        with r1c3:
+        with r1c3:  # card 3
             st.markdown("""
             <div class="feat-card">
               <span class="feat-icon">🎯</span>
               <div class="feat-title">Grounded Answers</div>
               <div class="feat-desc">The model is instructed to answer only from your document and to say so when the answer isn't there.</div>
-            </div>""", unsafe_allow_html=True)
+            </div>""", unsafe_allow_html=True)  # .feat-card HTML
 
-        # st.write("") = an empty line, as vertical space between the two rows of cards.
-        st.write("")
+        st.write("")  # empty line = space between rows
 
-        # Second row of 3 cards.
-        r2c1, r2c2, r2c3 = st.columns(3, gap="medium")
+        r2c1, r2c2, r2c3 = st.columns(3, gap="medium")  # row 2: 3 columns
 
-        with r2c1:
+        with r2c1:  # card 4
             st.markdown("""
             <div class="feat-card">
               <span class="feat-icon">✨</span>
               <div class="feat-title">Auto Summarization</div>
               <div class="feat-desc">Instantly generates a 3-point executive summary the moment your document is processed.</div>
-            </div>""", unsafe_allow_html=True)
+            </div>""", unsafe_allow_html=True)  # .feat-card HTML
 
-        with r2c2:
+        with r2c2:  # card 5
             st.markdown("""
             <div class="feat-card">
               <span class="feat-icon">💬</span>
               <div class="feat-title">Conversation Memory</div>
               <div class="feat-desc">Ask follow-up questions. The AI sees your earlier questions and answers in this session.</div>
-            </div>""", unsafe_allow_html=True)
+            </div>""", unsafe_allow_html=True)  # .feat-card HTML
 
-        with r2c3:
+        with r2c3:  # card 6
             st.markdown("""
             <div class="feat-card">
               <span class="feat-icon">📎</span>
               <div class="feat-title">Source Citations</div>
               <div class="feat-desc">Every answer lists the retrieved passages and their page numbers, so you can check it.</div>
-            </div>""", unsafe_allow_html=True)
+            </div>""", unsafe_allow_html=True)  # .feat-card HTML
 
-    # ── HOW IT WORKS ──────────────────────────────────────────────────────────
-    # "How it works" section: 4 numbered steps in 4 columns.
-    _, steps_col, _ = st.columns([0.5, 9, 0.5])
-    with steps_col:
-        st.markdown('<div class="section-label">⚙️ How it works</div>', unsafe_allow_html=True)
-        s1, s2, s3, s4 = st.columns(4, gap="small")
+    # ── Step 3: "How it works", 4 numbered steps ──
+    _, steps_col, _ = st.columns([0.5, 9, 0.5])  # centred column
+    with steps_col:  # inside it
+        st.markdown('<div class="section-label">⚙️ How it works</div>', unsafe_allow_html=True)  # section label
+        s1, s2, s3, s4 = st.columns(4, gap="small")  # 4 columns
 
-        # Loop over 4 (column, number, title, description) tuples and draw one step box in each column.
-        for col, num, title, desc in [
-            (s1, "1", "Upload PDF", "Choose any PDF document from your device."),
-            (s2, "2", "Chunk & Embed", "Text is split into paragraphs and converted into math vectors."),
-            (s3, "3", "Stored in ChromaDB", "Vectors saved locally on disk for instant retrieval."),
-            (s4, "4", "Ask Anything", "The LLM reads the best-matching chunks and generates a cited answer."),
+        for col, num, title, desc in [  # (column, number, title, text) per step
+            (s1, "1", "Upload PDF", "Choose any PDF document from your device."),  # step 1
+            (s2, "2", "Chunk & Embed", "Text is split into paragraphs and converted into math vectors."),  # step 2
+            (s3, "3", "Stored in ChromaDB", "Vectors saved locally on disk for instant retrieval."),  # step 3
+            (s4, "4", "Ask Anything", "The LLM reads the best-matching chunks and generates a cited answer."),  # step 4
         ]:
-            with col:
-                # f-string with triple quotes: {num}, {title}, {desc} are filled in from the loop values.
+            with col:  # draw in this step's column
                 st.markdown(f"""
                 <div class="step-wrap">
                   <div class="step-num">{num}</div>
                   <div class="step-title">{title}</div>
                   <div class="step-desc">{desc}</div>
-                </div>""", unsafe_allow_html=True)
+                </div>""", unsafe_allow_html=True)  # {num}/{title}/{desc} filled from the loop
 
-    # "<br>" = one HTML line break, extra space at the bottom of the welcome page.
-    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)  # bottom spacing
 
 
-# else: a document is loaded (qa_chain exists) -> show the chat page.
-else:
-    # ── ACTIVE CHAT PAGE ───────────────────────────────────────────────────────
-    # Header bar: file name, pages, read time, words and a green "Vector index ready" dot.
-    # html.escape() on the file name: a file named like "<b>x</b>.pdf" is shown as text, not run as HTML.
-    # .get('pages','?') = show "?" if a stat is missing.
+else:  # document loaded -> chat page
+    # ── Step 1: header bar (name, pages, read time, words) ──
+    # html.escape: a file named "<b>x</b>.pdf" shows as text; .get(...,'?') = "?" if a stat is missing.
     st.markdown(f"""
     <div class="chat-doc-bar">
       <span style="font-size:28px;">📄</span>
@@ -410,123 +300,94 @@ else:
         </div>
       </div>
     </div>
-    """, unsafe_allow_html=True)
+    """, unsafe_allow_html=True)  # green "Vector index ready" dot
 
-    # Auto-Summary
-    # Show the summary box only if a summary exists.
-    if st.session_state.doc_summary:
-        # Escape the LLM's text (so it cannot inject HTML), then turn each newline into "<br>" so the 3 bullets
-        # stay on separate lines inside the HTML box.
-        summary_html = html.escape(st.session_state.doc_summary).replace("\n", "<br>")
+    # ── Step 2: auto summary box ──
+    if st.session_state.doc_summary:  # summary exists?
+        summary_html = html.escape(st.session_state.doc_summary).replace("\n", "<br>")  # escape LLM text, keep 3 lines
         st.markdown(f"""
         <div class="summary-box">
           <div class="summary-label">✨ AI Executive Summary</div>
           <div class="summary-body">{summary_html}</div>
         </div>
-        """, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)  # summary card
 
-    # Previous messages
-    # Re-draw the whole chat from memory. This is needed because Streamlit re-runs the script on every action
-    # and the page starts blank each time.
-    for message in st.session_state.messages:
-        # Person icon for the user's messages, brain icon for the AI's.
-        avatar = "👤" if message["role"] == "user" else "🧠"
-        # st.chat_message draws one chat bubble for that role.
-        with st.chat_message(message["role"], avatar=avatar):
-            # st.markdown renders the text, so the LLM's bullet points and bold text display nicely.
-            st.markdown(message["content"])
-            # AI messages carry their source chunks; user messages do not (.get returns None -> skipped).
-            if message.get("sources"):
-                # A collapsed (expanded=False) section titled e.g. "4 Source Citations" (4 = TOP_K_RESULTS chunks).
+    # ── Step 3: redraw previous messages (page starts blank each rerun) ──
+    for message in st.session_state.messages:  # whole chat from memory
+        avatar = "👤" if message["role"] == "user" else "🧠"  # person vs brain icon
+        with st.chat_message(message["role"], avatar=avatar):  # one chat bubble
+            st.markdown(message["content"])  # markdown keeps bullets + bold
+            if message.get("sources"):  # AI messages only (user has none)
+                # collapsed section, e.g. "4 Source Citations"
                 with st.expander(f"📎 {len(message['sources'])} Source Citations", expanded=False):
-                    # One entry per chunk: its page number and a preview of its text.
-                    for doc in message["sources"]:
-                        pg = page_label(doc.metadata)
-                        # Preview = the first 380 characters of the chunk, trimmed, with newlines turned into spaces so it is one
-                        # compact paragraph (380 is just a preview length; the full chunk can be up to 1000 characters).
+                    for doc in message["sources"]:  # each chunk
+                        pg = page_label(doc.metadata)  # e.g. "5"
+                        # 380-char preview (chunk max 1000), newlines -> spaces
                         snippet = doc.page_content[:380].strip().replace("\n", " ")
-                        st.markdown(f"**📄 Page {pg}**")
-                        st.caption(f"{snippet}...")
-                        st.divider()
+                        st.markdown(f"**📄 Page {pg}**")  # bold page label
+                        st.caption(f"{snippet}...")  # grey preview
+                        st.divider()  # line between chunks
 
-    # Suggested questions (only when chat empty)
-    # Empty chat -> offer 3 ready-made starter questions as buttons.
-    if not st.session_state.messages:
-        st.markdown('<p class="suggestion-hint">💡 Try asking</p>', unsafe_allow_html=True)
-        sq1, sq2, sq3 = st.columns(3, gap="small")
-        # The 3 starter questions. They are general, so they work for any PDF.
-        qs = [
-            "What is the main topic of this document?",
-            "What are the key findings or conclusions?",
-            "Are there any risks or challenges mentioned?",
+    # ── Step 4: starter questions (only when chat empty) ──
+    if not st.session_state.messages:  # empty chat?
+        st.markdown('<p class="suggestion-hint">💡 Try asking</p>', unsafe_allow_html=True)  # hint text
+        sq1, sq2, sq3 = st.columns(3, gap="small")  # 3 columns
+        qs = [  # general, so they fit any PDF
+            "What is the main topic of this document?",  # question 1
+            "What are the key findings or conclusions?",  # question 2
+            "Are there any risks or challenges mentioned?",  # question 3
         ]
-        # zip() pairs each column with one question: (sq1, q1), (sq2, q2), (sq3, q3).
-        for col, q in zip([sq1, sq2, sq3], qs):
-            # Clicked -> store the question and re-run. On the re-run it is picked up just below as if typed.
-            if col.button(q, use_container_width=True):
-                st.session_state.pending_question = q
-                st.rerun()
+        for col, q in zip([sq1, sq2, sq3], qs):  # pair each column with a question
+            if col.button(q, use_container_width=True):  # clicked?
+                st.session_state.pending_question = q  # store it for next rerun
+                st.rerun()  # picked up below as if typed
 
-    # Chat input
-    # The chat text box pinned at the bottom. Returns the typed text once, on the re-run after Enter; else None.
-    # disabled while a PDF is being processed.
+    # ── Step 5: get the question (typed or starter button) ──
+    # text once after Enter, else None; disabled while indexing
     user_q = st.chat_input("Ask anything about your document...", disabled=st.session_state.processing)
 
-    # A starter-question button was clicked on the previous run -> use that question, then clear it
-    # so it is not asked again on the next re-run.
-    if st.session_state.pending_question:
-        user_q = st.session_state.pending_question
-        st.session_state.pending_question = None
+    if st.session_state.pending_question:  # button clicked last run?
+        user_q = st.session_state.pending_question  # use it
+        st.session_state.pending_question = None  # clear so it isn't asked again
 
-    # A question exists (typed or from a button) -> answer it.
-    if user_q:
-        # Save the user's message in the chat memory first.
-        st.session_state.messages.append({"role": "user", "content": user_q})
+    # ── Step 6: answer it ──
+    if user_q:  # have a question?
+        st.session_state.messages.append({"role": "user", "content": user_q})  # save user message first
 
-        # Draw the user's bubble right away.
-        with st.chat_message("user", avatar="👤"):
-            st.markdown(user_q)
+        with st.chat_message("user", avatar="👤"):  # draw user bubble now
+            st.markdown(user_q)  # the question text
 
-        # The AI's bubble, with a spinner while the answer is being made.
-        with st.chat_message("assistant", avatar="🧠"):
-            with st.spinner("Searching document and generating answer..."):
-                # try: any error from Google/Groq (bad key, rate limit, network) is caught below and shown in the chat.
-                try:
-                    # The real work: retrieve the top 4 chunks and ask Groq, passing the past (question, answer) pairs
-                    # so follow-up questions have context.
-                    result = run_qa(
-                        st.session_state.qa_chain,
-                        user_q,
-                        st.session_state.chat_history_pairs,
+        with st.chat_message("assistant", avatar="🧠"):  # AI bubble
+            with st.spinner("Searching document and generating answer..."):  # spinner while waiting
+                try:  # Google/Groq errors -> "except"
+                    result = run_qa(  # retrieve top 4 + ask Groq
+                        st.session_state.qa_chain,  # retriever + LLM + prompt
+                        user_q,  # the question
+                        st.session_state.chat_history_pairs,  # past pairs, for follow-ups
                     )
-                    # .get with a default: if "answer" were missing, show "Could not generate an answer." instead of crashing.
-                    answer = result.get("answer", "Could not generate an answer.")
-                    sources = result.get("source_documents", [])
+                    answer = result.get("answer", "Could not generate an answer.")  # fallback if missing
+                    sources = result.get("source_documents", [])  # the 4 chunks
 
-                    # Remember this turn as a (question, answer) pair for the next question's chat history.
-                    st.session_state.chat_history_pairs.append((user_q, answer))
-                    st.markdown(answer)
+                    st.session_state.chat_history_pairs.append((user_q, answer))  # memory for next question
+                    st.markdown(answer)  # show the answer
 
-                    # Show the source chunks under the answer, in the same collapsed format as above.
-                    if sources:
-                        with st.expander(f"📎 {len(sources)} Source Citations", expanded=False):
-                            for doc in sources:
-                                pg = page_label(doc.metadata)
-                                snippet = doc.page_content[:380].strip().replace("\n", " ")
-                                st.markdown(f"**📄 Page {pg}**")
-                                st.caption(f"{snippet}...")
-                                st.divider()
+                    if sources:  # show source chunks, same format as above
+                        with st.expander(f"📎 {len(sources)} Source Citations", expanded=False):  # collapsed section
+                            for doc in sources:  # each chunk
+                                pg = page_label(doc.metadata)  # e.g. "5"
+                                snippet = doc.page_content[:380].strip().replace("\n", " ")  # 380-char preview
+                                st.markdown(f"**📄 Page {pg}**")  # page label
+                                st.caption(f"{snippet}...")  # preview
+                                st.divider()  # line
 
-                    # Save the AI's message with its sources, so the next re-run can draw it again (loop at the top of this page).
-                    st.session_state.messages.append({
-                        "role": "assistant",
-                        "content": answer,
-                        "sources": sources,
+                    st.session_state.messages.append({  # save so reruns redraw it (Step 3)
+                        "role": "assistant",  # AI message
+                        "content": answer,  # its text
+                        "sources": sources,  # its chunks
                     })
 
-                # except: show the error in red and also save it as an AI message (with no sources), so it stays visible.
-                # It is NOT added to chat_history_pairs, so errors are not sent to the LLM as past answers.
-                except Exception as e:
-                    err = f"⚠️ Error: {str(e)}"
-                    st.error(err)
+                except Exception as e:  # show error, keep it visible in chat
+                    err = f"⚠️ Error: {str(e)}"  # error text
+                    st.error(err)  # red box
+                    # Saved to messages but NOT chat_history_pairs, so errors never reach the LLM.
                     st.session_state.messages.append({"role": "assistant", "content": err, "sources": []})

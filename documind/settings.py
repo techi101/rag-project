@@ -5,83 +5,49 @@ app.py, the rest of documind/ and the eval harness (eval/config.py) all read
 these values from here, so the evaluation always measures what the app ships.
 """
 
-# WHAT THIS FILE IS: the control panel of the RAG pipeline. No logic, only values. Change a number here
-# and both the app and the eval use the new value; nothing else needs editing.
-# Real example: set CHUNK_SIZE = 500 -> the next upload of a known PDF sees that index_meta.json says 1000,
-# so ingest.py rebuilds the index instead of reusing the old one, and eval/config.py's "baseline" becomes 500 too.
-# Who reads what: ingest.py (chunking, embedding, store folder), chain.py (top-k, model, temperature,
-#   max_tokens, prompt), summary.py (model, summary pages/temperature), eval/config.py (models, temperature,
-#   max_tokens, chunking, top-k).
+# WHAT THIS FILE IS: the control panel of the RAG pipeline: only values, no logic.
+# Example: set CHUNK_SIZE = 500 -> index_meta.json still says 1000, so ingest.py rebuilds the index;
+#   eval/config.py's "baseline" becomes 500 too.
+# Flow: settings.py -> ingest.py / chain.py / summary.py / eval/config.py
 
-# Path = an easy way to build file paths. CHROMA_BASE_DIR / pdf_hash makes "chroma_store/<hash>".
-from pathlib import Path
+from pathlib import Path  # easy paths: CHROMA_BASE_DIR / hash = "chroma_store/<hash>"
 
-# ── Retrieval settings ────────────────────────────────────────────────────────
+# ── BLOCK: retrieval settings ───────────────────────────────────────────
+CHROMA_BASE_DIR = Path("./chroma_store")  # one sub-folder per PDF: chroma_store/<pdf hash>/
 
-# Folder where all vector stores are saved. Each PDF gets its own sub-folder: chroma_store/<pdf hash>/.
-CHROMA_BASE_DIR = Path("./chroma_store")
+# 1000 chars (~150 words): holds a full idea, 4 chunks still short. Eval also tests 500 / 2000.
+CHUNK_SIZE = 1000  # max characters per chunk
 
-# How many characters each text chunk should be (~150 words).
-# Why 1000: big enough to hold a full idea (a paragraph or a short code example), small enough that
-# 4 chunks still make a short prompt. The eval also tests 500 and 2000 (configs chunk500 / chunk2000).
-CHUNK_SIZE = 1000
+# 20% of 1000: a sentence cut at a chunk end appears whole in the next one.
+CHUNK_OVERLAP = 200  # chars repeated between neighbour chunks
 
-# Overlap between consecutive chunks to avoid cutting context at boundaries.
-# Why 200 (20% of 1000): if a sentence is cut at the end of one chunk, the next chunk repeats the last
-# 200 characters, so the sentence appears whole in at least one chunk.
-CHUNK_OVERLAP = 200
+TOP_K_RESULTS = 4  # top-k = best 4 chunks per question (~4000 chars max)
 
-# How many relevant chunks to retrieve per question.
-# top-k = "take the k best matches". k = 4 means 4 chunks go into the prompt for each question.
-# 4 chunks x up to 1000 characters = at most about 4000 characters of context: enough evidence, short prompt.
-TOP_K_RESULTS = 4
+# Where the splitter may cut, best first: blank line, line break, sentence end, space, anywhere.
+CHUNK_SEPARATORS = ["\n\n", "\n", ". ", " ", ""]  # "" = last resort, may split a word
 
-# Where the splitter is allowed to cut, best choice first:
-#   "\n\n" = blank line (between paragraphs), "\n" = line break, ". " = end of a sentence,
-#   " " = between words, "" = anywhere (last resort, may cut a word in half).
-CHUNK_SEPARATORS = ["\n\n", "\n", ". ", " ", ""]
+# ── BLOCK: model settings ───────────────────────────────────────────────
+EMBED_MODEL = "models/gemini-embedding-001"  # Google embedding model, 3072 numbers per text
+GEN_MODEL = "openai/gpt-oss-20b"  # Groq answer model, 20B params, thinks in hidden tokens first
 
-# ── Model settings ────────────────────────────────────────────────────────────
+GEN_TEMPERATURE = 0.1  # temperature = randomness; 0.1 = near fixed, factual
 
-# The embedding model name. "models/" is how Google's API names its models. It returns 3072 numbers per text.
-EMBED_MODEL = "models/gemini-embedding-001"
-# The answer-writing model on Groq: OpenAI's open-weight gpt-oss-20b (20 billion parameters).
-# It is a "reasoning" model: it thinks in hidden tokens before writing the visible answer.
-GEN_MODEL = "openai/gpt-oss-20b"
+# token = small word piece (~3 to 4 chars). README: ~170 median, 391 worst case used.
+GEN_MAX_TOKENS = 1024  # cap on hidden reasoning + visible answer
 
-# temperature = how random the model's word choices are (0 = always the most likely word, higher =
-# more creative). 0.1 = almost fixed, good for factual answers from a document.
-GEN_TEMPERATURE = 0.1
+SUMMARY_PAGES = 5  # summary reads only first 5 pages (fewer tokens)
+SUMMARY_TEMPERATURE = 0.3  # a bit freer wording than Q&A's 0.1
 
-# max_tokens = 1024 = the most tokens the model may produce (hidden reasoning + visible answer).
-# README: measured cost is about 170 tokens median, 391 worst case, so 1024 leaves plenty of room.
-GEN_MAX_TOKENS = 1024
-
-# The upload summary (summary.py): read only the first SUMMARY_PAGES pages (fewer pages = fewer tokens =
-# faster and cheaper), with a bit more free wording than the Q&A (0.3 vs 0.1).
-SUMMARY_PAGES = 5
-SUMMARY_TEMPERATURE = 0.3
-
-# ── Index bookkeeping ─────────────────────────────────────────────────────────
-
-# Written next to each vector store. The store's folder is named by the PDF's
-# content hash only, so without this record a change to chunking or to the
-# embedding model would silently reuse an index built the old way, and a store
-# left half-built by a failed embedding call would look complete.
-# Example content of chroma_store/<hash>/index_meta.json:
-# {"embed_model": "models/gemini-embedding-001", "chunk_size": 1000, "chunk_overlap": 200, "n_chunks": 71}
-# (71 = the number of chunks the README reports for the MySQL Handbook at chunk size 1000.)
-INDEX_META_FILE = "index_meta.json"
+# ── BLOCK: index bookkeeping ────────────────────────────────────────────
+# Store folder is named by PDF hash only, so this record catches changed chunking/embed model
+# and half-built stores from a failed embedding call.
+# e.g. {"embed_model": "models/gemini-embedding-001", "chunk_size": 1000, "chunk_overlap": 200, "n_chunks": 71}
+INDEX_META_FILE = "index_meta.json"  # saved in chroma_store/<hash>/; 71 = MySQL Handbook chunks
 
 
-# ── The System Prompt (Prompt Engineering) ────────────────────────────────────
-# This is the instruction we give to the LLM that controls its behavior.
-# The key rule: answer ONLY from the document context — no hallucination.
-
-# SYSTEM_PROMPT = the standing instructions sent to the LLM before every question (the "system" message).
-# {context} is a blank: run_qa() fills it with the 4 retrieved chunks, each labelled "[Page N]".
-# Rule 2 is the anti-hallucination rule (hallucination = the AI confidently making something up).
-# The exact refusal sentence in rule 2 matters: the eval in eval/ looks for it to detect a refusal.
+# ── BLOCK: the system prompt (prompt engineering) ───────────────────────
+# Standing rules sent before every question. {context} = 4 retrieved chunks, each "[Page N]".
+# Rule 2 blocks hallucination (AI making things up). Gotcha: eval/ detects refusals by that exact sentence.
 SYSTEM_PROMPT = """You are DocuMind AI, an expert document analyst assistant.
 Your role is to provide accurate, insightful answers based STRICTLY on the
 provided document context below.

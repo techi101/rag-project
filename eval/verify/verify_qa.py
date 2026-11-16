@@ -21,42 +21,25 @@ Usage:
     py -3.12 eval/verify/verify_qa.py           # report only
     py -3.12 eval/verify/verify_qa.py --fix     # drop duplicates, write back
 """
-# WHAT THIS FILE IS: the "proof-reader" of the exam paper. The questions in eval/data/qa_set.json were written by an
-# LLM, so before any score is trusted this script checks them for three kinds of mistakes:
-#   1. a "probe" (a question the document should NOT be able to answer) whose topic is actually in the document,
-#   2. two questions that are almost the same (one fact counted twice),
-#   3. a question that gives the game away by saying "page 12" or "according to the text".
-# Real example: the probe topic "slow query log" is flagged SUSPECT if "slow_query_log" appears anywhere
-# in the MySQL handbook's full text.
-# Overall flow: load questions + full text of each PDF -> check probes -> check near-duplicates -> check leaks
-# -> print a summary -> with --fix, remove duplicates and save the file again.
-#
-# json: read and write the question set file.
-import json
-# re = regular expressions (text patterns), used to spot "page 12" or "according to the document".
-import re
-# sys: read command-line options (--fix) and change the import path.
-import sys
-# pathlib: finds the folder this file lives in.
-import pathlib
-# SequenceMatcher (Python's built-in difflib): gives a 0-to-1 similarity score between two strings.
-# 1.0 = identical, 0.0 = nothing in common. Used to find near-duplicate questions.
-from difflib import SequenceMatcher
+# WHAT THIS FILE IS: proof-reads the LLM-written questions in eval/data/qa_set.json for 3 mistakes:
+# probe (should-be-unanswerable) whose topic IS in the PDF, near-duplicate questions, questions saying "page 12".
+# Example: probe "slow query log" is SUSPECT if "slow_query_log" appears anywhere in the MySQL handbook.
+# Flow: load questions + full PDF text -> check probes -> duplicates -> leaks -> summary -> --fix drops duplicates.
 
-# This script is in a subfolder of eval/, so go ONE folder up (parent.parent) to reach eval/ and put it on
-# the import path; then "import config" finds eval/config.py, from any starting folder.
-sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
-# config = eval/config.py: document paths and the path of qa_set.json.
-import config
+import json      # read/write the question set
+import re        # regex: spot "page 12", "according to the text"
+import sys       # sys.argv (--fix), sys.path
+import pathlib   # this file's folder
+from difflib import SequenceMatcher  # 0-1 string similarity, 1.0 = identical
 
-# PyPDFLoader: LangChain's PDF reader, one Document per page; used to get the FULL text of each document.
-from langchain_community.document_loaders import PyPDFLoader
+sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))  # add eval/ so "import config" works
+import config    # eval/config.py: DOCUMENTS, QA_SET_PATH
+
+from langchain_community.document_loaders import PyPDFLoader  # PDF -> pages, for full text
 
 # Distinctive terms per unanswerable probe. If ANY appears in the full document,
 # the probe is suspect and must be reviewed by hand.
-# Each key is a probe topic; the list holds words that would show the topic IS in the document.
-# Example: for "storage engine", finding "myisam" or "engine=" in the MySQL handbook makes the probe suspect.
-PROBE_TERMS = {
+PROBE_TERMS = {                                            # probe topic -> words proving it IS in the PDF
     "slow query log": ["slow query log", "slow_query_log"],
     "storage engine": ["storage engine", "myisam", "engine="],
     "slowly changing": ["slowly changing", "scd type", "type 2 dimension"],
@@ -65,79 +48,58 @@ PROBE_TERMS = {
     "optimizer": ["optimizer", "learning rate", "adam"],
 }
 
-# Two questions with similarity 0.82 or more count as duplicates. 0.82 is a hand-picked cut-off: high enough
-# that questions sharing only a common opening ("What is the ...") are not flagged, low enough to catch rewordings.
-DUPLICATE_THRESHOLD = 0.82
+DUPLICATE_THRESHOLD = 0.82  # hand-picked: skips shared "What is the ...", catches rewordings
 
 
-# IN: doc_id like "mysql" -> OUT: the whole document as one lowercase string (all pages joined by spaces).
-# WHY: a probe must be checked against the COMPLETE document, not the sample the generator saw.
-# Example: full_text("mysql") -> "mysql handbook ... create database startersql; ..." (lowercased).
+# IN: doc_id e.g. "mysql" -> OUT: whole PDF as one lowercase string
+# checks probes vs the COMPLETE text, not the generator's sample
 def full_text(doc_id):
-    path = config.DOCUMENTS[doc_id]["path"]
-    return " ".join(p.page_content for p in PyPDFLoader(path).load()).lower()
+    path = config.DOCUMENTS[doc_id]["path"]                # PDF path
+    return " ".join(p.page_content for p in PyPDFLoader(path).load()).lower()  # all pages joined
 
 
-# IN: command-line flag --fix (optional) -> OUT: printed report; with --fix, qa_set.json is rewritten without duplicates.
-# WHY: a test built on bad questions gives confident but wrong scores.
-# Example: py -3.12 eval/verify/verify_qa.py --fix  -> "--fix: dropped 1 duplicate(s), ..." if a duplicate was found.
+# IN: optional --fix -> OUT: report; with --fix, qa_set.json rewritten without duplicates
+# e.g. "--fix: dropped 1 duplicate(s), ..."
 def main():
-    # fix = True only if "--fix" was typed on the command line.
-    fix = "--fix" in sys.argv
-    # Load all questions, and the full lowercase text of every document (doc_id -> text).
-    qa = json.loads(config.QA_SET_PATH.read_text(encoding="utf-8"))
-    texts = {d: full_text(d) for d in config.DOCUMENTS}
-    # problems collects (question id, reason) for the final summary.
-    problems = []
+    fix = "--fix" in sys.argv                              # True if --fix typed
+    qa = json.loads(config.QA_SET_PATH.read_text(encoding="utf-8"))  # all questions
+    texts = {d: full_text(d) for d in config.DOCUMENTS}    # doc_id -> full lowercase text
+    problems = []                                          # (id, reason) for summary
 
     # ---- Check 1: probes against the full document text ----
     print("=" * 74)
     print("1. UNANSWERABLE PROBES vs FULL DOCUMENT TEXT")
     print("=" * 74)
-    # Loop over every question.
     for q in qa:
-        # Only probes (answerable = False) are checked here; skip normal questions.
-        if q["answerable"]:
+        if q["answerable"]:                                # probes only
             continue
-        # Lowercase question text.
-        body = q["question"].lower()
-        # Collect the topic words linked to this probe: a term is taken if it appears in the question (with "?" removed),
-        # or if the topic key itself appears in the question (then every term of that key is taken).
+        body = q["question"].lower()                       # lowercase question
         matched = [term for key, terms in PROBE_TERMS.items()
-                   for term in terms if term in body.replace("?", "") or key in body]
-        # hits = those terms that really appear in the document's full text. Any hit means the probe may be answerable.
-        hits = [t for t in set(matched) if t in texts[q["doc_id"]]]
-        # Print one line per probe: id, document, status, first 60 characters of the question.
-        status = "SUSPECT" if hits else "ok"
-        print("  %-6s [%-6s] %-7s %s" % (q["id"], q["doc_id"], status, q["question"][:60]))
-        # If any term was found, show which ones and record the problem.
+                   for term in terms if term in body.replace("?", "") or key in body]  # topic terms for this probe
+        hits = [t for t in set(matched) if t in texts[q["doc_id"]]]  # terms really in the PDF
+        status = "SUSPECT" if hits else "ok"               # any hit = maybe answerable
+        print("  %-6s [%-6s] %-7s %s" % (q["id"], q["doc_id"], status, q["question"][:60]))  # one line per probe
         if hits:
-            print("         terms present in document: %s" % hits)
+            print("         terms present in document: %s" % hits)  # which terms
             problems.append((q["id"], "probe topic present in document"))
 
     # ---- Check 2: near-duplicate questions ----
     print("\n" + "=" * 74)
     print("2. NEAR-DUPLICATE QUESTIONS")
     print("=" * 74)
-    # dupes = ids of the LATER question of each duplicate pair (the ones to drop).
-    dupes = set()
-    # Compare every pair of questions once: i from the start, j always after i.
-    for i in range(len(qa)):
-        for j in range(i + 1, len(qa)):
-            # Only compare questions from the same document; skip pairs from different documents.
-            if qa[i]["doc_id"] != qa[j]["doc_id"]:
+    dupes = set()                                          # ids to drop (later of each pair)
+    for i in range(len(qa)):                               # every pair once
+        for j in range(i + 1, len(qa)):                    # j always after i
+            if qa[i]["doc_id"] != qa[j]["doc_id"]:         # same PDF only
                 continue
-            # Similarity of the two lowercase questions, 0 to 1. None = do not treat any characters as junk.
             ratio = SequenceMatcher(None, qa[i]["question"].lower(),
-                                    qa[j]["question"].lower()).ratio()
-            # Similar enough -> print both questions (first 66 characters) and mark the later one as a duplicate.
-            if ratio >= DUPLICATE_THRESHOLD:
+                                    qa[j]["question"].lower()).ratio()  # 0-1 similarity
+            if ratio >= DUPLICATE_THRESHOLD:               # 0.82+ = duplicate
                 print("  %s ~ %s  (similarity %.2f)" % (qa[i]["id"], qa[j]["id"], ratio))
-                print("     %s" % qa[i]["question"][:66])
-                print("     %s" % qa[j]["question"][:66])
+                print("     %s" % qa[i]["question"][:66])  # first question
+                print("     %s" % qa[j]["question"][:66])  # second question
                 dupes.add(qa[j]["id"])            # keep the first, drop the later
                 problems.append((qa[j]["id"], "near-duplicate of %s" % qa[i]["id"]))
-    # No pair crossed the threshold.
     if not dupes:
         print("  none found")
 
@@ -145,45 +107,34 @@ def main():
     print("\n" + "=" * 74)
     print("3. LEAKED GROUND TRUTH")
     print("=" * 74)
-    # Count of leaky questions.
-    leaked = 0
-    # Loop over every question.
+    leaked = 0                                             # leaky question count
     for q in qa:
         body = q["question"].lower()
-        # Regex, three alternatives separated by "|":
-        #   \bpage \d+  = the word "page", a space, then one or more digits ("page 12"); \b = start of a word.
-        #   according to the (text|passage|document)  = that phrase ending in any one of the three words.
-        #   this page  = the literal words "this page".
-        # Any of these means the question points at its source instead of asking about the fact.
+        # regex: "page 12" OR "according to the text/passage/document" OR "this page"
         if re.search(r"\bpage \d+|according to the (text|passage|document)|this page", body):
             print("  %s  %s" % (q["id"], q["question"][:66]))
             problems.append((q["id"], "references the source rather than asking"))
             leaked += 1
-    # No leaky questions.
     if not leaked:
         print("  none found")
 
-    # ---- Summary: total questions, total problems, and each problem on its own line ----
+    # ---- Summary ----
     print("\n" + "=" * 74)
     print("SUMMARY: %d questions, %d problems" % (len(qa), len(problems)))
-    # Print each recorded problem.
-    for qid, why in problems:
+    for qid, why in problems:                              # each problem
         print("  %-6s %s" % (qid, why))
     print("=" * 74)
 
-    # With --fix and at least one duplicate: keep every question that is not a duplicate and save the file.
-    # indent=2 makes the JSON readable; ensure_ascii=False keeps any non-English characters as they are.
+    # ── --fix: drop duplicates and save ──
     if fix and dupes:
-        kept = [q for q in qa if q["id"] not in dupes]
+        kept = [q for q in qa if q["id"] not in dupes]     # non-duplicates
         config.QA_SET_PATH.write_text(
-            json.dumps(kept, indent=2, ensure_ascii=False), encoding="utf-8")
+            json.dumps(kept, indent=2, ensure_ascii=False), encoding="utf-8")  # pretty JSON, keep non-English
         print("\n--fix: dropped %d duplicate(s), %d questions remain"
               % (len(dupes), len(kept)))
-    # Duplicates found but --fix not given: just tell the user how to remove them.
-    elif dupes:
+    elif dupes:                                            # found, but no --fix
         print("\nRe-run with --fix to drop duplicates.")
 
 
-# Run main() only when this file is started directly, not when imported.
-if __name__ == "__main__":
-    main()
+if __name__ == "__main__":  # only when run directly
+    main()                  # start

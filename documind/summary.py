@@ -2,59 +2,50 @@
 documind/summary.py — the 3-bullet summary shown in the sidebar right after upload.
 """
 
-# WHAT THIS FILE IS: a quick first look at the document. It does NOT use the index or retrieval: it simply
-# sends the text of the first 5 pages to the LLM and asks for 3 bullet points.
-# Real example: generate_summary("handbook.pdf", "gsk_...") -> "- Introduces SQL and MySQL...\n- ...\n- ..."
-#   (illustrative text; the real one depends on the PDF and the model).
-#
+# WHAT THIS FILE IS: a quick first look at the uploaded PDF, shown in the sidebar.
+# No index or retrieval: sends the first 5 pages' text to the LLM, asks for 3 bullets.
+# Example: generate_summary("handbook.pdf", "gsk_...") -> "- Introduces SQL and MySQL...\n- ...\n- ..." (illustrative).
+# Flow: PDF -> first 5 pages -> prompt -> Groq LLM -> 3 bullets
 
-# PyPDFLoader = reads a PDF with the pypdf library and returns one LangChain "Document" per page.
-from langchain_community.document_loaders import PyPDFLoader
-# ChatGroq = calls an LLM hosted by Groq. ChatPromptTemplate = a prompt with blanks to fill in.
-# StrOutputParser = takes the LLM's reply object and gives back just the plain text string.
-from langchain_groq import ChatGroq
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import StrOutputParser
+from langchain_community.document_loaders import PyPDFLoader  # PDF -> one Document per page
+from langchain_groq import ChatGroq  # calls an LLM hosted on Groq
+from langchain_core.prompts import ChatPromptTemplate  # prompt with {blanks} to fill
+from langchain_core.output_parsers import StrOutputParser  # LLM reply -> plain text
 
-from documind.settings import GEN_MODEL, SUMMARY_PAGES, SUMMARY_TEMPERATURE
+from documind.settings import GEN_MODEL, SUMMARY_PAGES, SUMMARY_TEMPERATURE  # model, 5 pages, 0.3
 
 
-# IN: path of the PDF + Groq API key  ->  OUT: a short 3-bullet summary text (or an error line).
-# WHY: right after upload the user sees what the document is about before asking anything.
-# Example: for the MySQL Handbook -> "- Introduces SQL and MySQL...\n- ...\n- ..." (illustrative text).
+# IN: PDF path + Groq API key -> OUT: 3-bullet summary text (or an error line)
+# e.g. MySQL Handbook -> "- Introduces SQL and MySQL...\n- ...\n- ..." (illustrative)
 def generate_summary(pdf_path: str, groq_api_key: str) -> str:
     """
     Reads the first few pages of the document and generates a 3-bullet-point
     executive summary to instantly orient the user.
     """
-    # try: any failure (bad key, rate limit, no internet) is caught below so the upload still works.
-    try:
-        # Read the PDF again, one Document per page.
-        loader = PyPDFLoader(pdf_path)
-        pages = loader.load()
+    try:  # bad key / rate limit / no internet -> except
+        # ── Step 1: read the first 5 pages ──
+        loader = PyPDFLoader(pdf_path)  # reader for this PDF
+        pages = loader.load()  # one Document per page
         
-        # Only use the first SUMMARY_PAGES (5) pages to save tokens and speed up summarizing.
-        # pages[:5] = the first 5 pages only (fewer pages = fewer tokens = faster and cheaper).
-        # Their texts are joined with a newline into one string.
+        # fewer pages = fewer tokens = faster and cheaper
         text_to_summarize = "\n".join([page.page_content for page in pages[:SUMMARY_PAGES]])
         
-        # A separate LLM client for the summary. SUMMARY_TEMPERATURE 0.3 = a bit more free wording than the Q&A (0.1),
-        # fine for a summary. No max_tokens set here, so Groq's default limit applies.
-        llm = ChatGroq(
-            model=GEN_MODEL,
-            groq_api_key=groq_api_key,
-            temperature=SUMMARY_TEMPERATURE,
-        )
+        # ── Step 2: set up the LLM ──
+        llm = ChatGroq(  # separate client for the summary
+            model=GEN_MODEL,  # "openai/gpt-oss-20b"
+            groq_api_key=groq_api_key,  # user's Groq key
+            temperature=SUMMARY_TEMPERATURE,  # 0.3: freer wording than Q&A's 0.1
+        )  # no max_tokens: Groq's default applies
         
-        # A 2-message prompt: system instructions (3 bullets, no intro) + the document text in the {text} blank.
-        prompt = ChatPromptTemplate.from_messages([
+        # ── Step 3: 2-message prompt (rules + document text) ──
+        prompt = ChatPromptTemplate.from_messages([  # list of (role, text) messages
+            # system = standing rules: exactly 3 bullets, no intro or outro
             ("system", "You are an expert analyst. Provide a brief, 3-bullet-point executive summary of the following document excerpt. Be concise and professional. Do not include any introductory or concluding remarks, just the 3 bullet points."),
-            ("human", "Document text:\n{text}")
+            ("human", "Document text:\n{text}")  # {text} = the 5 pages
         ])
         
-        # Same pipe as in run_qa(): prompt -> LLM -> plain text; then run it with the first 5 pages' text.
-        chain = prompt | llm | StrOutputParser()
-        return chain.invoke({"text": text_to_summarize})
-    # except: return the error as a bullet line, so the sidebar shows what went wrong instead of crashing.
-    except Exception as e:
-        return f"- Could not generate summary. ({str(e)})"
+        # ── Step 4: run prompt -> LLM -> text ──
+        chain = prompt | llm | StrOutputParser()  # "|" pipes each step's output on
+        return chain.invoke({"text": text_to_summarize})  # fill {text}, return the bullets
+    except Exception as e:  # anything failed
+        return f"- Could not generate summary. ({str(e)})"  # sidebar shows the error, no crash
